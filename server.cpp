@@ -50,6 +50,7 @@ int main(int argc,char *argv[])
 	
 	for(;;)
 	{
+	    	char *response = "here is your file";
 		printf("waiting\n");
 		recvlen = recvfrom(fd, buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
 		printf("received %d bytes\n", recvlen);
@@ -58,6 +59,11 @@ int main(int argc,char *argv[])
 			buf[recvlen] = 0;
 			printf("received message: \"%s\"\n",buf);
 		}
+		if(atoi((const char*) buf) != 1)
+		{
+		sendto(fd, response, strlen(response), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr));
+		}
 	}
+
 	exit(0);
 }
