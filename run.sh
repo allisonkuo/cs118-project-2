@@ -1,9 +1,8 @@
 #!/bin/sh
 
-g++ server.cpp -o server
-#g++ receiver.cpp -o receiver
+make
 
 #./server PORTNO CWnd loss_prob corr_prob
-./server 8000 
+./server 8003 &
 #./receiver sender_hostname sender_portnumber filename loss_prob corr_prob
-#./receiver
+./receiver localhost 8003
