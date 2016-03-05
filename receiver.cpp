@@ -6,7 +6,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-#define BUFSIZE 20000 // MAKE THE SAME SIZE AS MAX SENDER'S PACKET SIZE
+#define BUFSIZE 5000 // MAKE THE SAME SIZE AS MAX SENDER'S PACKET SIZE
 
 int main(int argc,char *argv[])
 {

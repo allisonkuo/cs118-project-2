@@ -5,7 +5,8 @@
 #include <string.h>
 #include <iostream>
 
-#define BUFSIZE 20000
+#define BUFSIZE 5000
+#define HEADERSIZE 5000
 
 using namespace std;
 
@@ -83,26 +84,24 @@ int main(int argc,char *argv[])
         fseek(fp, 0L, SEEK_SET);
         while(!feof(fp))
         {
+	 //   int temp = 1;
+	 //   char* temp_string;
+	    unsigned char send_buf[BUFSIZE + HEADERSIZE];
+	 //   itoa(temp,temp_string, 10);
+	    char* header = "SEQUENCE_NUMBER:1"; 
+	  strcpy(send_buf, (const char*) header);
           int read_count;
           read_count = fread(file_buf,1,sizeof(file_buf),fp);
+	  strcat(send_buf, file_buf);
           if (read_count > 0)
           {
             int sent_count = sendto(fd, file_buf, strlen((const char*)file_buf), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr));
             printf("%d\n", strlen((const char*)file_buf));
             if (sent_count < 0)
             {
-              perror("error sending file stupid");
+              perror("error sending file");
               exit(1);
             }
-            /*unsigned char* send_buf;
-              send_buf = file_buf;
-              do {
-              int sent_count;
-              if (sent_count < 0)
-              perror("error sending file");
-              send_buf += sent_count;
-              read_count -= sent_count;
-              } while (read_count > 0);*/
           }
         }
       }
