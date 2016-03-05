@@ -1,24 +1,33 @@
-#include <sys/socket.h>
+#include <iostream>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <netinet/in.h>
 #include <string.h>
-#include <iostream>
+#include <sys/socket.h>
+
+using namespace std;
 
 #define BUFSIZE 5000
 #define HEADERSIZE 5000
 
-using namespace std;
+void itoa (int n, char s[]) 
+{
+  int i, sign;
+  if ((sign = n) < 0)
+    n = -n;
+  i = 0;
+  do {
+
+  } while ((n /= 10) > 0);
+}
 
 int main(int argc,char *argv[])
 {
   struct sockaddr_in myaddr, cliaddr;
   int fd;
   unsigned int addr_len;
-
   unsigned char buf[BUFSIZE];
   socklen_t addrlen = sizeof(cliaddr);
-  int recvlen;
 
   // open socket
   if((fd = socket(AF_INET, SOCK_DGRAM,0)) < 0)
@@ -56,6 +65,8 @@ int main(int argc,char *argv[])
   unsigned char file_buf[BUFSIZE];
   char *send_buf;
   int filesize;
+  int recvlen;
+ 
   // other stuff
   for(;;)
   {
@@ -84,19 +95,19 @@ int main(int argc,char *argv[])
         fseek(fp, 0L, SEEK_SET);
         while(!feof(fp))
         {
-	 //   int temp = 1;
-	 //   char* temp_string;
-	    unsigned char send_buf[BUFSIZE + HEADERSIZE];
-	 //   itoa(temp,temp_string, 10);
-	    char* header = "SEQUENCE_NUMBER:1"; 
-	  strcpy(send_buf, (const char*) header);
+          int temp = 1;
+          char* temp_string;
+          unsigned char send_buf[BUFSIZE + HEADERSIZE];
+         // itoa(temp,temp_string, 10);
+          char header[] = "SEQUENCE_NUMBER: 1"; 
+          strcpy((char*) send_buf, (const char*) header);
           int read_count;
           read_count = fread(file_buf,1,sizeof(file_buf),fp);
-	  strcat(send_buf, file_buf);
+          strcat((char*) send_buf, (const char*) file_buf);
           if (read_count > 0)
           {
             int sent_count = sendto(fd, file_buf, strlen((const char*)file_buf), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr));
-            printf("%d\n", strlen((const char*)file_buf));
+            
             if (sent_count < 0)
             {
               perror("error sending file");
