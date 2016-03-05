@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <ctype.h>
 
 #define BUFSIZE 5000 // MAKE THE SAME SIZE AS MAX SENDER'S PACKET SIZE
 
@@ -17,7 +18,6 @@ int main(int argc,char *argv[])
     struct sockaddr_in servaddr; // server address
 
     char *request = argv[3]; // request message
-    char *ack = "ACK";  // ACK
 
     // set server address information
     memset((char*)&servaddr, 0, sizeof(servaddr)); 
@@ -57,7 +57,20 @@ int main(int argc,char *argv[])
 	recvlen = recvfrom(fd, buf, BUFSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
 	printf("received message: \"%s\"\n",buf);
 
+	// parse header
+	char* sequence_num_pos = strstr((char*) buf, "SEQUENCE NUMBER: ") + 17;
+	int i;
+	for(i = 0; ; i++)
+	{
+	    if(!isdigit(sequence_num_pos[i]))
+		break;
+	}
+	char sequence_num[30000];
+	strncpy(sequence_num, sequence_num_pos, i);
+
 	// send ack if received packet
+	char ack[30000] = "ACK: ";  // ACK
+	strcat(ack, sequence_num);
 	if (sendto(fd, ack, strlen(ack), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) 
 	{ 
 	    perror("send to failed"); 
