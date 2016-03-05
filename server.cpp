@@ -5,7 +5,7 @@
 #include <string.h>
 #include <iostream>
 
-#define BUFSIZE 204800
+#define BUFSIZE 4000
 
 using namespace std;
 
@@ -58,8 +58,6 @@ int main(int argc,char *argv[])
   // other stuff
   for(;;)
   {
-    char *response = "here is your file";
-
     // listen for receiver request/ACKs
     printf("waiting\n");
     recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
@@ -86,19 +84,19 @@ int main(int argc,char *argv[])
         while(!feof(fp))
         {
           int read_count;
-          read_count  = fread(file_buf,1,sizeof(file_buf),fp);
+          read_count = fread(file_buf,1,sizeof(file_buf),fp);
           if (read_count > 0)
           {
-            unsigned char* send_buf;
+	      int sent_count = sendto(fd, file_buf, sizeof(file_buf), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr));
+	      /*unsigned char* send_buf;
             send_buf = file_buf;
             do {
               int sent_count;
-              sent_count = sendto(fd, send_buf, strlen((const char*) send_buf), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr));
               if (sent_count < 0)
                 perror("error sending file");
               send_buf += sent_count;
               read_count -= sent_count;
-            } while (read_count > 0);
+            } while (read_count > 0);*/
           }
         }
       }
