@@ -116,6 +116,7 @@ int main(int argc,char *argv[])
           itoa(temp, temp_string);
           char header[] = "SEQUENCE NUMBER: ";
           strcat(header, (const char*) temp_string); 
+          strcat(header, "\n");
           printf("%s\n", header);
           strcpy((char*) send_buf, (const char*) header);
           
@@ -124,7 +125,7 @@ int main(int argc,char *argv[])
           strcat((char*) send_buf, (const char*) file_buf);
           if (read_count > 0)
           {
-            int sent_count = sendto(fd, file_buf, strlen((const char*)file_buf), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr));
+            int sent_count = sendto(fd, send_buf, strlen((const char*)send_buf), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr));
             
             if (sent_count < 0)
             {
