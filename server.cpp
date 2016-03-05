@@ -5,7 +5,7 @@
 #include <string.h>
 #include <iostream>
 
-#define BUFSIZE 4000
+#define BUFSIZE 20000
 
 using namespace std;
 
@@ -87,16 +87,22 @@ int main(int argc,char *argv[])
           read_count = fread(file_buf,1,sizeof(file_buf),fp);
           if (read_count > 0)
           {
-	      int sent_count = sendto(fd, file_buf, sizeof(file_buf), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr));
-	      /*unsigned char* send_buf;
-            send_buf = file_buf;
-            do {
+            int sent_count = sendto(fd, file_buf, strlen((const char*)file_buf), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr));
+            printf("%d\n", strlen((const char*)file_buf));
+            if (sent_count < 0)
+            {
+              perror("error sending file stupid");
+              exit(1);
+            }
+            /*unsigned char* send_buf;
+              send_buf = file_buf;
+              do {
               int sent_count;
               if (sent_count < 0)
-                perror("error sending file");
+              perror("error sending file");
               send_buf += sent_count;
               read_count -= sent_count;
-            } while (read_count > 0);*/
+              } while (read_count > 0);*/
           }
         }
       }
