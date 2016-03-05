@@ -96,7 +96,7 @@ int main(int argc,char *argv[])
     }
 
     // send message again
-    if(strcmp((const char*) received_buf, "ACK") != 0)
+    if(received_buf[0] != 'A' && received_buf[1] != 'C' && received_buf[2] != 'K')
     {
       fp = fopen((const char*) received_buf, "r");
       if(fp == NULL)
