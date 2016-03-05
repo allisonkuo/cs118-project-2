@@ -10,6 +10,7 @@ using namespace std;
 #define BUFSIZE 5000
 #define HEADERSIZE 5000
 
+// simple function to convert integer to ascii
 void itoa (int n, char s[]) 
 {
   int i, sign;
@@ -17,9 +18,23 @@ void itoa (int n, char s[])
     n = -n;
   i = 0;
   do {
-
+    s[i++] = n % 10 + '0';
   } while ((n /= 10) > 0);
+  if (sign < 0)
+    s[i++] = '-';
+  s[i] = '\0';
+  
+  // reverse the string
+  int j, k;
+  char c;
+  for (j = 0, k = strlen(s) - 1; j < k; j++, k--)
+  {
+    c = s[j];
+    s[j] = s[k];
+    s[k] = c;
+  }
 }
+
 
 int main(int argc,char *argv[])
 {
@@ -95,12 +110,15 @@ int main(int argc,char *argv[])
         fseek(fp, 0L, SEEK_SET);
         while(!feof(fp))
         {
-          int temp = 1;
-          char* temp_string;
+          int temp = 15234;
+          char temp_string[50];
           unsigned char send_buf[BUFSIZE + HEADERSIZE];
-         // itoa(temp,temp_string, 10);
-          char header[] = "SEQUENCE_NUMBER: 1"; 
+          itoa(temp, temp_string);
+          char header[] = "SEQUENCE NUMBER: ";
+          strcat(header, (const char*) temp_string); 
+          printf("%s\n", header);
           strcpy((char*) send_buf, (const char*) header);
+          
           int read_count;
           read_count = fread(file_buf,1,sizeof(file_buf),fp);
           strcat((char*) send_buf, (const char*) file_buf);
