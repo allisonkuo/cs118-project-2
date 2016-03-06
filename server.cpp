@@ -118,17 +118,18 @@ int main(int argc,char *argv[])
           // create packet headers
           itoa(seq_num, seq_num_string); 
 
+	  memset(send_buf,0,sizeof(send_buf));
           strcat(header, (const char*) seq_num_string); 
           strcat(header, "\n");
           strcpy((char*) send_buf, (const char*) header);
 
-	  printf("send_buf:%s",send_buf);
           // place file into buffer
           int read_count;
-          read_count = fread(file_buf,1,sizeof(file_buf),fp);
-
-	  printf("file_buf:%s",file_buf);
+	  memset(file_buf,0,sizeof(file_buf));
+          read_count = fread(file_buf,1,sizeof(file_buf)-1,fp);
+	  printf("read_count:%i\n",read_count);
 	  strcat((char*) send_buf, (const char*) file_buf);
+	  printf("send_buf:\n%s\n\n",send_buf);
 
           if (read_count > 0)
           {

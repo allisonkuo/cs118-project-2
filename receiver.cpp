@@ -52,6 +52,7 @@ int main(int argc,char *argv[])
 
     for(;;)
     {
+	memset(buf,0,sizeof(buf));
 	// wait for packets from server
 	addrlen = sizeof(servaddr);
 	recvlen = recvfrom(fd, buf, BUFSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
