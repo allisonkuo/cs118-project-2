@@ -55,7 +55,7 @@ int main(int argc,char *argv[])
 	// wait for packets from server
 	addrlen = sizeof(servaddr);
 	recvlen = recvfrom(fd, buf, BUFSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
-	printf("received message: \"%s\"\n",buf);
+	printf("received message: %s\n",buf);
 
 	// parse header
 	char* sequence_num_pos = strstr((char*) buf, "SEQUENCE NUMBER: ") + 17;

@@ -5,9 +5,7 @@
 #include <string.h>
 #include <sys/socket.h>
 
-using namespace std;
-
-#define BUFSIZE 5000
+#define BUFSIZE 2048
 #define HEADERSIZE 5000
 
 // simple function to convert integer to ascii
@@ -81,6 +79,7 @@ int main(int argc,char *argv[])
   char *send_buf;
   int filesize;
   int recvlen;
+  int seq_num; // sequence number
  
   // other stuff
   for(;;)
@@ -92,41 +91,48 @@ int main(int argc,char *argv[])
     if(recvlen > 0)
     {
       received_buf[recvlen] = 0;
-      printf("received message: \"%s\"\n",received_buf);
+      printf("received message: %s\n",received_buf);
     }
 
-    // send message again
+    // send message based off request
     if(received_buf[0] != 'A' && received_buf[1] != 'C' && received_buf[2] != 'K')
     {
       fp = fopen((const char*) received_buf, "r");
       if(fp == NULL)
-      {
         perror("file not found");
-      }
       else
       {
         fseek(fp, 0L, SEEK_END);
         filesize = ftell(fp);
         fseek(fp, 0L, SEEK_SET);
+        
+        seq_num = 0;
+        
+        // read through file
         while(!feof(fp))
-        {
-          int temp = 15234;
-          char temp_string[50];
-          unsigned char send_buf[BUFSIZE + HEADERSIZE];
-          itoa(temp, temp_string);
+        { 
+          char seq_num_string[50];
           char header[] = "SEQUENCE NUMBER: ";
-          strcat(header, (const char*) temp_string); 
+          unsigned char send_buf[BUFSIZE + HEADERSIZE];      
+    
+          // create packet headers
+          itoa(seq_num, seq_num_string); 
+
+          strcat(header, (const char*) seq_num_string); 
           strcat(header, "\n");
-          printf("%s\n", header);
           strcpy((char*) send_buf, (const char*) header);
-          
+
+          // place file into buffer
           int read_count;
           read_count = fread(file_buf,1,sizeof(file_buf),fp);
           strcat((char*) send_buf, (const char*) file_buf);
+
           if (read_count > 0)
           {
+            // send the file packets
             int sent_count = sendto(fd, send_buf, strlen((const char*)send_buf), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr));
-            
+
+            seq_num++;  // increment sequence number    
             if (sent_count < 0)
             {
               perror("error sending file");
