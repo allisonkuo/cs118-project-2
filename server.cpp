@@ -122,10 +122,13 @@ int main(int argc,char *argv[])
           strcat(header, "\n");
           strcpy((char*) send_buf, (const char*) header);
 
+	  printf("send_buf:%s",send_buf);
           // place file into buffer
           int read_count;
           read_count = fread(file_buf,1,sizeof(file_buf),fp);
-          strcat((char*) send_buf, (const char*) file_buf);
+
+	  printf("file_buf:%s",file_buf);
+	  strcat((char*) send_buf, (const char*) file_buf);
 
           if (read_count > 0)
           {
