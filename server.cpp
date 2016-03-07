@@ -5,9 +5,12 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <pthread.h>
+#include <time.h>
+#include <unistd.h>
 
 #define BUFSIZE 2048
 #define HEADERSIZE 5000
+#define TIMEOUT 5
 
 //GLOBAL VARIABLES
 int fd; //socket
@@ -15,7 +18,8 @@ struct sockaddr_in myaddr, cliaddr;
 socklen_t addrlen;
 char *ack;
 char **packet_contents;
-char *timestamps;
+time_t *timestamps;
+int window_size;
 
 // simple function to convert integer to ascii
 void itoa (int n, char s[]) 
@@ -63,7 +67,16 @@ void *listenthread(void *fp)
 	if(received_buf[0] == 'A' && received_buf[1] == 'C' && received_buf[2] == 'K')
 	{
 	    printf("received: %s\n",received_buf);
-
+	    char* ack_pos = strstr((char*) received_buf, "ACK: ") + 5;
+	    int i;
+	    for(i = 0; ; i++)
+	    {
+		if(!isdigit(ack_pos[i]))
+		    break;
+	    }
+	    char ack_num[30000];
+	    strncpy(ack_num, ack_pos, i);
+	    ack[atoi(ack_num)] = 1;
 	}
     }
 }
@@ -75,7 +88,10 @@ void *talkthread(void *fp)
     unsigned char file_buf[BUFSIZE];
     unsigned char send_buf[BUFSIZE + HEADERSIZE];      
     int seq_num = 0;
-    while(!feof((FILE *)fp))
+    int initial_send_count = 0;
+
+    //initial loop to send window_size number of packets
+    while(inital_send_count < window_size || !feof((FILE *)fp))
     { 
 	char seq_num_string[50];
 	char header[] = "SEQUENCE NUMBER: ";
@@ -94,8 +110,9 @@ void *talkthread(void *fp)
 	read_count = fread(file_buf,1,sizeof(file_buf)-1,(FILE *)fp);
 	//printf("read_count:%i\n",read_count);
 	strcat((char*) send_buf, (const char*) file_buf);
+	strcpy(packet_contents[seq_num], (const char*) send_buf);
 	//printf("send_buf:\n%s\n\n",send_buf);
-
+	printf("packet_content:\n%s\n", packet_contents[seq_num]);
 	if (read_count > 0)
 	{
 	    // send the file packets
@@ -105,8 +122,17 @@ void *talkthread(void *fp)
 		perror("error sending file");
 		exit(1);
 	    }
+	    timestamps[seq_num] = time(NULL);
+	    printf("time: %d\n", (long long) timestamps[seq_num]);
 	    seq_num += 1;
 	}
+	initial_send_count += 1;
+    }
+
+    //main loop that updates window while sending
+    while()
+    {
+	
     }
 }
 
@@ -156,6 +182,8 @@ int main(int argc,char *argv[])
     int recvlen;
     int seq_num; // sequence number
 
+    //window size
+    window_size = atoi(argv[2])/BUFSIZE;
     // other stuff
     for(;;)
     {
@@ -169,6 +197,7 @@ int main(int argc,char *argv[])
 	    printf("received message: %s\n",received_buf);
 	}
 
+	
 	// send message based off request
 	if(received_buf[0] != 'A' && received_buf[1] != 'C' && received_buf[2] != 'K')
 	{
@@ -181,13 +210,25 @@ int main(int argc,char *argv[])
 		filesize = ftell(fp);
 		fseek(fp, 0L, SEEK_SET);
 
-		
+		ack = (char *) malloc(window_size);
+		memset(ack,0,window_size);
+
+		packet_contents = (char **) malloc(window_size * sizeof(char*));
+		for(int i = 0; i < window_size; i++)
+		    packet_contents[i] = (char *) malloc(BUFSIZE);
+
+		timestamps = (time_t *) malloc(window_size * sizeof(time_t*));
+
 		//start threading
 		pthread_t threads[2];
 		pthread_create(threads, NULL, listenthread, (void *) fp);
 		pthread_create(threads+1,NULL, talkthread, (void *) fp);
 		pthread_join(threads[0],NULL);
 		pthread_join(threads[1],NULL);
+
+		free(ack);
+		free(packet_contents);
+		free(timestamps);
 	    }
 	}
 	else
