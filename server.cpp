@@ -338,18 +338,30 @@ int main(int argc,char *argv[])
     if(recvlen > 0)
     {
       received_buf[recvlen] = 0;
-      printf("received message: %s\n",received_buf);
+      printf("requested file: %s\n",received_buf);
     }
-
 
     // send message based off request
     if(received_buf[0] != 'A' && received_buf[1] != 'C' && received_buf[2] != 'K')
     {
       fp = fopen((const char*) received_buf, "r");
       if(fp == NULL)
-        perror("file not found");
-      else
       {
+        perror("file not found");
+        if (sendto(fd, "NACK", 4, 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0)
+          perror("error sending nack"); 
+      }
+      else
+      { 
+        while (strcmp((const char*)received_buf, "ACK") != 0)      
+        {   
+          if (sendto(fd, "ACK", 3, 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0
+            perror("error sending ack"); 
+          recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
+          if (recvlen < 0)
+            perror("error receiveing message");
+        }
+
         fseek(fp, 0L, SEEK_END);
         filesize = ftell(fp);
         fseek(fp, 0L, SEEK_SET);
