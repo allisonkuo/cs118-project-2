@@ -355,8 +355,9 @@ int main(int argc,char *argv[])
       { 
         while (strcmp((const char*)received_buf, "ACK") != 0)      
         {   
-          if (sendto(fd, "ACK", 3, 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0
-            perror("error sending ack"); 
+          if (sendto(fd, "ACK", 3, 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0)
+            perror("error sending ack");
+          memset(received_buf, 0, sizeof(received_buf)); 
           recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
           if (recvlen < 0)
             perror("error receiveing message");

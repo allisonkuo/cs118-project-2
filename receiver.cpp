@@ -64,6 +64,7 @@ int main(int argc,char *argv[])
 	  {
 	      char ack_message[4] = "ACK";
 	      sendto(fd, ack_message, strlen(ack_message), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+        break;
 	  }
 	  else if(strcmp((const char*) buf, "NACK") == 0)
 	  {
