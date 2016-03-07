@@ -80,7 +80,7 @@ int main(int argc,char *argv[])
       for (int k = 0; k < received_packets_count; k++)
       {
         fprintf(fp,"%s",file_content[k]);
-        printf("%s", file_content[k]);
+        //printf("%s", file_content[k]);
       }
       fclose(fp);
     }
@@ -132,7 +132,7 @@ int main(int argc,char *argv[])
       char total_packets_string[30000];
       strncpy(total_packets_string, message_start_position, i);
       total_packets = atoi(total_packets_string);
-      received_packets_count += 1;
+      //received_packets_count += 1;
       continue;
     }
 

@@ -254,10 +254,15 @@ void *talkthread(void *fp)
 
             //read/save next packet
             char temp_total_packets[30000];
-            itoa(window_size + window_start, temp_total_packets);
+
+            //TESTING
+            printf("window_start %d\n", window_start);
+            printf("window_size %d\n", window_size);
+
+            itoa(num_loops + window_start, temp_total_packets);
             strcat((char*) send_buf, (const char*) temp_total_packets);
 
-            printf("buffer:\n%s\n",send_buf);
+            //printf("buffer:\n%s\n",send_buf);
             
             // send next packet in window
             printf("	send4\n");
