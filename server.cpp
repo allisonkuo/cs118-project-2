@@ -11,7 +11,7 @@
 #define BUFSIZE 2048
 #define HEADERSIZE 5000
 #define TIMEOUT 5
-
+#define SRAND 2
 //GLOBAL VARIABLES
 int fd; //socket
 struct sockaddr_in myaddr, cliaddr;
@@ -31,9 +31,13 @@ int loss_check ()
 {
     int random = rand() % 1000;
     if (random < loss_rate * 1000)
+    {
 	return 1; //lost
+    }
     else
+    {
 	return 0; //not lost
+    }
 }
 
 
@@ -73,8 +77,10 @@ void *listenthread(void *fp)
     printf("\nwaiting\n");
     recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
     if(loss_check())
+    {
+	printf("DROPPED %d bytes\n", recvlen);
 	continue;
-    
+    }
     printf("received %d bytes\n", recvlen);
     if(recvlen < 3)
       printf("error receiving");
@@ -140,7 +146,6 @@ void *talkthread(void *fp)
     if (read_count > 0)
     {
       // send the file packets
-      printf("	send1\n");
       int sent_count = sendto(fd, send_buf, strlen((const char*)send_buf), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr));
       if (sent_count < 0)
       {
@@ -175,8 +180,10 @@ void *talkthread(void *fp)
         // resend if TIMEOUT
         if (difftime(time(NULL), timestamps[i]) >= TIMEOUT)
         {
+//	  printf("i value: %d\n", i);
+//	  printf("ack @ i: %d\n", ack[i]);
+//	  printf("buffer : \n%s\n", packet_contents[i]);
           //printf("difftime: %d\n", difftime(time(NULL), timestamps[i]));
-          printf("	send2\n");
           int sent_count = sendto(fd, packet_contents[i], strlen((const char*) packet_contents[i]), 0, (struct sockaddr*)&cliaddr, sizeof(cliaddr));
           if (sent_count < 0)
             perror("error sending file");
@@ -194,13 +201,16 @@ void *talkthread(void *fp)
     {
       if(ack[0] == 1 && !feof((FILE *)fp))
       {
+	  
         // move window
         window_start += 1;
         for(int i = 0; i < window_size - 1; i++)
         {
           ack[i] = ack[i+1];
           timestamps[i] = timestamps[i+1];
-          packet_contents[i] = packet_contents[i + 1];
+	  memset(packet_contents[i],0,sizeof(packet_contents[i]));
+	  strcpy(packet_contents[i],packet_contents[i + 1]);
+          //packet_contents[i] = packet_contents[i + 1];
         }
         ack[window_size - 1] = 0;
 
@@ -226,7 +236,6 @@ void *talkthread(void *fp)
         strcpy(packet_contents[window_size - 1], (const char*) send_buf);
 
         // send next packet in window
-        printf("	send3\n");
         int sent_count = sendto(fd, packet_contents[window_size - 1], strlen((const char*) packet_contents[window_size - 1]), 0, (struct sockaddr*) &cliaddr, sizeof(cliaddr));
         if (sent_count < 0)
           perror("error sending file\n");
@@ -282,7 +291,6 @@ void *talkthread(void *fp)
             //printf("buffer:\n%s\n",send_buf);
             
             // send next packet in window
-            printf("	send4\n");
             int sent_count = sendto(fd, send_buf, strlen((const char*) send_buf), 0, (struct sockaddr*) &cliaddr, sizeof(cliaddr));
             if (sent_count < 0)
               perror("error sending file\n");
@@ -348,6 +356,7 @@ int main(int argc,char *argv[])
   //window size
   window_size = atoi(argv[2])/BUFSIZE;
 
+  srand(SRAND);
   // other stuff
   for(;;)
   {

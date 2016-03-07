@@ -171,9 +171,12 @@ int main(int argc,char *argv[])
       max_packets = max_packets * 2;
     }
 
-    strcpy(file_content[sequence], message_start_position);
-    //  printf("packet %i\n%s\n",sequence, file_content[sequence]);
-    received_packets_count += 1;
+    if(strcmp(file_content[sequence],message_start_position) != 0)
+    {
+	strcpy(file_content[sequence], message_start_position);
+	//  printf("packet %i\n%s\n",sequence, file_content[sequence]);
+	received_packets_count += 1;
+    }
   }
 
 }
