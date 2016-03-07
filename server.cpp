@@ -23,6 +23,20 @@ int window_size;
 pthread_mutex_t lock;
 int window_start;
 char final_ack;
+double loss_rate;
+double corruption_rate;
+
+// function to determine if packet is lost
+int loss_check ()
+{
+    int random = rand() % 1000;
+    if (random < loss_rate * 1000)
+	return 1; //lost
+    else
+	return 0; //not lost
+}
+
+
 // simple function to convert integer to ascii
 void itoa (int n, char s[]) 
 {
@@ -58,6 +72,9 @@ void *listenthread(void *fp)
     // listen for receiver request/ACKs
     printf("\nwaiting\n");
     recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
+    if(loss_check())
+	continue;
+    
     printf("received %d bytes\n", recvlen);
     if(recvlen < 3)
       printf("error receiving");
@@ -317,6 +334,9 @@ int main(int argc,char *argv[])
   printf("bind complete. Port number = %d\n", ntohs(myaddr.sin_port));
 
 
+  loss_rate = atof(argv[3]);
+  corruption_rate = atof(argv[4]);
+
   FILE *fp;
   unsigned char received_buf[BUFSIZE];
   unsigned char file_buf[BUFSIZE];
@@ -334,6 +354,9 @@ int main(int argc,char *argv[])
     // listen for receiver request/ACKs
     printf("\nwaiting\n");
     recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
+    if(loss_check())
+	continue;
+
     printf("received %d bytes\n", recvlen);
     if(recvlen > 0)
     {
@@ -359,6 +382,11 @@ int main(int argc,char *argv[])
             perror("error sending ack");
           memset(received_buf, 0, sizeof(received_buf)); 
           recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
+	  if(loss_check())
+	  {
+		memset(received_buf,0,sizeof(received_buf));
+	  	continue;
+	  }
           if (recvlen < 0)
             perror("error receiveing message");
         }
