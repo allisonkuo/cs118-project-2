@@ -62,7 +62,7 @@ int main(int argc,char *argv[])
   {
     file_content[j] = (char *)malloc(BUFSIZE + HEADERSIZE);
   }
- 
+
   // listening 
   for (;;)
   {
@@ -73,15 +73,16 @@ int main(int argc,char *argv[])
     printf("received packets: %d\n",received_packets_count);
     if (total_packets  == received_packets_count)
     {
-	printf("testing");
-	FILE *fp;
-	fp = fopen("output.txt","w+");
-	// received whole message
-	for (int k = 0; k < received_packets_count; k++)
-	{
-	    fprintf(fp,"%s",file_content[k]);
-	    //printf("%s", file_content[k]);
-	}
+      FILE *fp;
+      fp = fopen("output.txt","w+"); // output to a file 
+      
+      // received whole message
+      for (int k = 0; k < received_packets_count; k++)
+      {
+        fprintf(fp,"%s",file_content[k]);
+        printf("%s", file_content[k]);
+      }
+      fclose(fp);
     }
     // wait for packets from server
     addrlen = sizeof(servaddr);
@@ -94,7 +95,7 @@ int main(int argc,char *argv[])
     int i;
     if (header_pos[0] == '-' && header_pos[1] == '1')  // last packet header: -1
     {
-	i = 2;
+      i = 2;
     }
 
     else
@@ -107,7 +108,7 @@ int main(int argc,char *argv[])
     }
     // extract packet's sequence number
     strncpy(sequence_num, header_pos,i);
-    
+
     printf("sequence num: %s\n",sequence_num);
     // send ack if received packet
     char ack[30000] = "ACK: ";  // ACK
@@ -118,7 +119,7 @@ int main(int argc,char *argv[])
     // parse out message
     int sequence = atoi(sequence_num);
     char* message_start_position = strstr((char*) buf, "\n") + 1;
-    
+
     // PLAN: last packet seq number = -1
     //       last packet message = # of total packets sent
     if (sequence == -1)
@@ -145,9 +146,9 @@ int main(int argc,char *argv[])
       }
       max_packets = max_packets * 2;
     }
-    
+
     strcpy(file_content[sequence], message_start_position);
-//  printf("packet %i\n%s\n",sequence, file_content[sequence]);
+    //  printf("packet %i\n%s\n",sequence, file_content[sequence]);
     received_packets_count += 1;
   }
 
