@@ -7,7 +7,7 @@
 #include <netdb.h>
 #include <ctype.h>
 
-#define BUFSIZE 1024 // MAKE THE SAME SIZE AS MAX SENDER'S PACKET SIZE
+#define BUFSIZE 2048 // MAKE THE SAME SIZE AS MAX SENDER'S PACKET SIZE
 #define HEADERSIZE 5000
 
 int main(int argc,char *argv[])
@@ -69,8 +69,6 @@ int main(int argc,char *argv[])
     // reset buf 
     memset(buf, 0, BUFSIZE + HEADERSIZE);  
 
-    printf("total packets: %d\n",total_packets);
-    printf("received_packets_count: %d\n",received_packets_count);
     if (total_packets == received_packets_count)
     {
       // received whole message

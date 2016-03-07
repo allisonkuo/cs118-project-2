@@ -8,7 +8,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define BUFSIZE 1024
+#define BUFSIZE 2048
 #define HEADERSIZE 5000
 #define TIMEOUT 5
 
