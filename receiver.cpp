@@ -106,6 +106,8 @@ int main(int argc,char *argv[])
           break;
       }
     }
+    memset(sequence_num,0,sizeof(sequence_num));
+
     // extract packet's sequence number
     strncpy(sequence_num, header_pos,i);
 
