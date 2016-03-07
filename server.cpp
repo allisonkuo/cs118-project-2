@@ -40,7 +40,18 @@ int loss_check ()
     }
 }
 
-
+int corruption_check ()
+{
+	int random = rand() % 1000;
+	if (random < corruption_rate * 1000)
+	{
+	    return 1; //corrupted
+	}
+	else
+	{
+	    return 0; //corrupted
+	}
+}
 // simple function to convert integer to ascii
 void itoa (int n, char s[]) 
 {
@@ -76,7 +87,7 @@ void *listenthread(void *fp)
     // listen for receiver request/ACKs
     printf("\nwaiting\n");
     recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
-    if(loss_check())
+    if(loss_check() || corruption_check())
     {
 	printf("DROPPED %d bytes\n", recvlen);
 	continue;
@@ -363,7 +374,7 @@ int main(int argc,char *argv[])
     // listen for receiver request/ACKs
     printf("\nwaiting\n");
     recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
-    if(loss_check())
+    if(loss_check() || corruption_check())
 	continue;
 
     printf("received %d bytes\n", recvlen);
@@ -377,7 +388,7 @@ int main(int argc,char *argv[])
     if(received_buf[0] != 'A' && received_buf[1] != 'C' && received_buf[2] != 'K')
     {
       fp = fopen((const char*) received_buf, "r");
-      if(fp == NULL)
+      if(fp == NULL || corruption_check())
       {
         perror("file not found");
         if (sendto(fd, "NACK", 4, 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0)
@@ -391,7 +402,7 @@ int main(int argc,char *argv[])
             perror("error sending ack");
           memset(received_buf, 0, sizeof(received_buf)); 
           recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
-	  if(loss_check())
+	  if(loss_check() || corruption_check())
 	  {
 		memset(received_buf,0,sizeof(received_buf));
 	  	continue;
