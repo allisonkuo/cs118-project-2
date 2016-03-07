@@ -8,6 +8,7 @@
 #include <ctype.h>
 
 #define BUFSIZE 5000 // MAKE THE SAME SIZE AS MAX SENDER'S PACKET SIZE
+#define HEADERSIZE 5000
 
 int main(int argc,char *argv[])
 {
@@ -25,7 +26,7 @@ int main(int argc,char *argv[])
   servaddr.sin_port = htons(atoi(argv[2])); // look up the address of the server given its name
 
   // create socket 
-  unsigned char buf[BUFSIZE];
+  unsigned char buf[BUFSIZE + HEADERSIZE];
   if((fd = socket(AF_INET, SOCK_DGRAM,0)) < 0)
   {
     perror("cannot create socket");
@@ -59,14 +60,14 @@ int main(int argc,char *argv[])
   int j;
   for(j = 0; j < 100; j++)
   {
-    file_content[j] = (char *)malloc(BUFSIZE);
+    file_content[j] = (char *)malloc(BUFSIZE + HEADERSIZE);
   }
  
   // listening 
   for (;;)
   {
     // reset buf 
-    memset(buf, 0, BUFSIZE); 
+    memset(buf, 0, BUFSIZE + HEADERSIZE); 
   /* 
     if (received_packets_count == 3)//(total_packets == received_packets_count)
     {
@@ -76,7 +77,7 @@ int main(int argc,char *argv[])
     }*/
     // wait for packets from server
     addrlen = sizeof(servaddr);
-    recvlen = recvfrom(fd, buf, BUFSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
+    recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
     //	printf("received message: %s\n",buf);
 
     // parse header
@@ -126,10 +127,10 @@ int main(int argc,char *argv[])
     // add to message buffer
     if (sequence >= max_packets) //allocate more memory
     {
-      file_content = (char **) realloc(file_content, max_packets * 2);
+      file_content = (char **) realloc(file_content, max_packets * 2 * sizeof(char*));
       for(j = max_packets; j < max_packets * 2; j++)
       {
-        file_content[j] = (char *) malloc(BUFSIZE);
+        file_content[j] = (char *) malloc(BUFSIZE + HEADERSIZE);
       }
       max_packets = max_packets * 2;
     }
