@@ -7,7 +7,7 @@
 #include <netdb.h>
 #include <ctype.h>
 
-#define BUFSIZE 5000 // MAKE THE SAME SIZE AS MAX SENDER'S PACKET SIZE
+#define BUFSIZE 1024 // MAKE THE SAME SIZE AS MAX SENDER'S PACKET SIZE
 #define HEADERSIZE 5000
 
 int main(int argc,char *argv[])
@@ -67,14 +67,16 @@ int main(int argc,char *argv[])
   for (;;)
   {
     // reset buf 
-    memset(buf, 0, BUFSIZE + HEADERSIZE); 
-  /* 
-    if (received_packets_count == 3)//(total_packets == received_packets_count)
+    memset(buf, 0, BUFSIZE + HEADERSIZE);  
+
+    printf("total packets: %d\n",total_packets);
+    printf("received_packets_count: %d\n",received_packets_count);
+    if (total_packets == received_packets_count)
     {
       // received whole message
-      for (int k = 0; k < received_packets_count; k++)
+      for (int k = 0; k < received_packets_count + 1; k++)
         printf("%s", file_content[k]);
-    }*/
+    }
     // wait for packets from server
     addrlen = sizeof(servaddr);
     recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
@@ -115,7 +117,7 @@ int main(int argc,char *argv[])
     {
       for(i = 0; ; i++)
       {
-        if(!isdigit(header_pos[i]))
+        if(!isdigit(message_start_position[i]))
           break;
       }
       char total_packets_string[30000];
