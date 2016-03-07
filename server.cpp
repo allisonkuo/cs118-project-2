@@ -186,8 +186,11 @@ void *talkthread(void *fp)
 
         // update packet headers
         itoa(window_start + window_size - 1, seq_num_string); 
-        
+
+        // reset the buffers        
         memset(send_buf,0,sizeof(send_buf));
+        memset(file_buf,0,sizeof(file_buf));
+
         strcat(header, (const char*) seq_num_string); 
         strcat(header, "\n");
         strcpy((char*) send_buf, (const char*) header);

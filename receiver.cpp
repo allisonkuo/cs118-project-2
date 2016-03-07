@@ -80,7 +80,6 @@ int main(int argc,char *argv[])
     // wait for packets from server
     addrlen = sizeof(servaddr);
     recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
-    //	printf("received message: %s\n",buf);
 
     // parse header
     // sequence number
@@ -127,7 +126,7 @@ int main(int argc,char *argv[])
     }
 
     // add to message buffer
-    if (sequence >= max_packets) //allocate more memory
+    while (sequence >= max_packets) //allocate more memory
     {
       file_content = (char **) realloc(file_content, max_packets * 2 * sizeof(char*));
       for(j = max_packets; j < max_packets * 2; j++)
@@ -136,8 +135,9 @@ int main(int argc,char *argv[])
       }
       max_packets = max_packets * 2;
     }
+    
     strcpy(file_content[sequence], message_start_position);
-//    printf("packet %i\n%s",sequence, file_content[sequence]);
+//  printf("packet %i\n%s\n",sequence, file_content[sequence]);
     received_packets_count += 1;
   }
 
