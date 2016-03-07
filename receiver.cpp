@@ -84,8 +84,12 @@ int main(int argc,char *argv[])
     char* header_pos = strstr((char*) buf, "SEQUENCE NUMBER: ") + 17;
     char sequence_num[30000];
     int i;
+    printf("test:\n%s\n",buf);
     if (header_pos[0] == '-' && header_pos[1] == '1')  // last packet header: -1
-      i = 2;
+    {
+	i = 2;
+    }
+
     else
     {
       for(i = 0; ; i++)

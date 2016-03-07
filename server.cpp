@@ -56,7 +56,7 @@ void *listenthread(void *fp)
   {
     memset(received_buf,0,sizeof(received_buf));
     // listen for receiver request/ACKs
-    printf("waiting\n");
+    printf("\nwaiting\n");
     recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
     printf("received %d bytes\n", recvlen);
     if(recvlen < 3)
@@ -124,6 +124,7 @@ void *talkthread(void *fp)
     if (read_count > 0)
     {
       // send the file packets
+	printf("	send1\n");
       int sent_count = sendto(fd, send_buf, strlen((const char*)send_buf), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr));
       if (sent_count < 0)
       {
@@ -132,8 +133,6 @@ void *talkthread(void *fp)
       }
       printf("seq_num: %i\n",seq_num);
       timestamps[seq_num] = time(NULL);
-      printf("time0: %d\n", (int) timestamps[0]);
-      printf("time1: %d\n", (int) timestamps[1]);
       seq_num += 1;
     }
     initial_send_count += 1;
@@ -142,9 +141,14 @@ void *talkthread(void *fp)
   //main loop that updates window while sending
   while(1)
   {
+      int num_loops = window_size;
+      if(initial_send_count < window_size)
+      {
+	num_loops = initial_send_count;
+      }
     int i;
     // check for ACKS for all packets sent in window
-    for (i = 0; i < window_size; i++)
+    for (i = 0; i < num_loops; i++)
     {
       pthread_mutex_lock(&lock);
       //check for timeouts
@@ -155,7 +159,8 @@ void *talkthread(void *fp)
         if (difftime(time(NULL), timestamps[i]) >= TIMEOUT)
         {
           //printf("difftime: %d\n", difftime(time(NULL), timestamps[i]));
-          int sent_count = sendto(fd, packet_contents[i], strlen((const char*) packet_contents[i]), 0, (struct sockaddr*)&cliaddr, sizeof(cliaddr));
+	    printf("	send2\n");
+	    int sent_count = sendto(fd, packet_contents[i], strlen((const char*) packet_contents[i]), 0, (struct sockaddr*)&cliaddr, sizeof(cliaddr));
           if (sent_count < 0)
             perror("error sending file");
 
@@ -202,6 +207,7 @@ void *talkthread(void *fp)
         strcpy(packet_contents[window_size - 1], (const char*) send_buf);
 
         // send next packet in window
+	printf("	send3\n");
         int sent_count = sendto(fd, packet_contents[window_size - 1], strlen((const char*) packet_contents[window_size - 1]), 0, (struct sockaddr*) &cliaddr, sizeof(cliaddr));
         if (sent_count < 0)
           perror("error sending file\n");
@@ -251,6 +257,7 @@ void *talkthread(void *fp)
 
 		    printf("buffer:\n%s\n",send_buf);
 		    // send next packet in window
+		    printf("	send4\n");
 		    int sent_count = sendto(fd, send_buf, strlen((const char*) send_buf), 0, (struct sockaddr*) &cliaddr, sizeof(cliaddr));
 		    if (sent_count < 0)
 			perror("error sending file\n");
@@ -316,7 +323,7 @@ int main(int argc,char *argv[])
   for(;;)
   {
     // listen for receiver request/ACKs
-    printf("waiting\n");
+    printf("\nwaiting\n");
     recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
     printf("received %d bytes\n", recvlen);
     if(recvlen > 0)
