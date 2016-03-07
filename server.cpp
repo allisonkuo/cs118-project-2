@@ -123,14 +123,15 @@ void *talkthread(void *fp)
 		perror("error sending file");
 		exit(1);
 	    }
-	    timestamps[seq_num] = (time_t) time(NULL);
+	    printf("seq_num: %i\n",seq_num);
+	    timestamps[seq_num] = time(NULL);
 	    printf("time0: %d\n", (int) timestamps[0]);
 	    printf("time1: %d\n", (int) timestamps[1]);
 	    seq_num += 1;
 	}
 	initial_send_count += 1;
     }
-/*
+
     //main loop that updates window while sending
     while(1)
     {
@@ -191,7 +192,7 @@ void *talkthread(void *fp)
 		break;
 	    }
 	}
-    }*/
+    }
 }
 
 
@@ -274,7 +275,7 @@ int main(int argc,char *argv[])
 
 		packet_contents = (char **) malloc(window_size * sizeof(char*));
 		for(int i = 0; i < window_size; i++)
-		    packet_contents[i] = (char *) malloc(BUFSIZE);
+		    packet_contents[i] = (char *) malloc(BUFSIZE + HEADERSIZE);
 
 		timestamps = (time_t *) malloc(window_size * sizeof(time_t));
 
