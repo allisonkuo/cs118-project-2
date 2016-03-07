@@ -51,6 +51,27 @@ int main(int argc,char *argv[])
     exit(1); 
   }
 
+  // listen for ACK or NACK from server
+
+  recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
+  if(recvlen < 0)
+      printf("error receiving");
+  else
+  {
+      while(1)
+      {
+	  if(strcmp((const char*) buf, "ACK") == 0)
+	  {
+	      char ack_message[4] = "ACK";
+	      sendto(fd, ack_message, strlen(ack_message), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	  }
+	  else if(strcmp((const char*) buf, "NACK") == 0)
+	  {
+	      sendto(fd, request, strlen(request), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	  }
+      }
+  }
+
 
   char **file_content; // to hold all the packets 
   int max_packets = 1;
