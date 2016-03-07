@@ -67,13 +67,13 @@ int main(int argc,char *argv[])
   {
     // reset buf 
     memset(buf, 0, BUFSIZE); 
-   
-    if (received_packets_count == 2)//(total_packets == received_packets_count)
+  /* 
+    if (received_packets_count == 3)//(total_packets == received_packets_count)
     {
       // received whole message
       for (int k = 0; k < received_packets_count; k++)
         printf("%s", file_content[k]);
-    }
+    }*/
     // wait for packets from server
     addrlen = sizeof(servaddr);
     recvlen = recvfrom(fd, buf, BUFSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
@@ -97,6 +97,7 @@ int main(int argc,char *argv[])
     // extract packet's sequence number
     strncpy(sequence_num, header_pos,i);
     
+    printf("sequence num: %s\n",sequence_num);
     // send ack if received packet
     char ack[30000] = "ACK: ";  // ACK
     strcat(ack, sequence_num);

@@ -20,6 +20,8 @@ char *ack;
 char **packet_contents;
 time_t *timestamps;
 int window_size;
+pthread_mutex_t lock;
+int window_start;
 
 // simple function to convert integer to ascii
 void itoa (int n, char s[]) 
@@ -76,7 +78,9 @@ void *listenthread(void *fp)
 	    }
 	    char ack_num[30000];
 	    strncpy(ack_num, ack_pos, i);
-	    ack[atoi(ack_num)] = 1;
+	    pthread_mutex_lock(&lock);
+	    ack[atoi(ack_num) - window_start] = 1;
+	    pthread_mutex_unlock(&lock);
 	}
     }
 }
@@ -91,7 +95,7 @@ void *talkthread(void *fp)
     int initial_send_count = 0;
 
     //initial loop to send window_size number of packets
-    while(inital_send_count < window_size || !feof((FILE *)fp))
+    while(initial_send_count < window_size && !feof((FILE *)fp))
     { 
 	char seq_num_string[50];
 	char header[] = "SEQUENCE NUMBER: ";
@@ -108,11 +112,8 @@ void *talkthread(void *fp)
 	int read_count;
 	memset(file_buf,0,sizeof(file_buf));
 	read_count = fread(file_buf,1,sizeof(file_buf)-1,(FILE *)fp);
-	//printf("read_count:%i\n",read_count);
 	strcat((char*) send_buf, (const char*) file_buf);
 	strcpy(packet_contents[seq_num], (const char*) send_buf);
-	//printf("send_buf:\n%s\n\n",send_buf);
-	printf("packet_content:\n%s\n", packet_contents[seq_num]);
 	if (read_count > 0)
 	{
 	    // send the file packets
@@ -122,19 +123,77 @@ void *talkthread(void *fp)
 		perror("error sending file");
 		exit(1);
 	    }
-	    timestamps[seq_num] = time(NULL);
-	    printf("time: %d\n", (long long) timestamps[seq_num]);
+	    timestamps[seq_num] = (time_t) time(NULL);
+	    printf("time0: %d\n", (int) timestamps[0]);
+	    printf("time1: %d\n", (int) timestamps[1]);
 	    seq_num += 1;
 	}
 	initial_send_count += 1;
     }
-
+/*
     //main loop that updates window while sending
-    while()
+    while(1)
     {
-	
-    }
+	int i;
+	// check for ACKS for all packets sent in window
+	for (i = 0; i < window_size; i++)
+	{
+	    pthread_mutex_lock(&lock);
+	    //check for timeouts
+	    if (ack[i] == 0)
+	    {
+		pthread_mutex_unlock(&lock);
+		// resend if TIMEOUT
+		if (difftime(time(NULL), timestamps[i]) >= TIMEOUT)
+		{
+		    //printf("difftime: %d\n", difftime(time(NULL), timestamps[i]));
+		    int sent_count = sendto(fd, packet_contents[i], strlen((const char*) packet_contents[i]), 0, (struct sockaddr*)&cliaddr, sizeof(cliaddr));
+		    if (sent_count < 0)
+			perror("error sending file");
+
+		    // update timestamp of resent message
+		    timestamps[i] = time(NULL);
+		}
+	    }
+	    else
+		pthread_mutex_unlock(&lock);
+	}
+	pthread_mutex_lock(&lock);
+	while(1)
+	{
+	    if(ack[0] == 1 && !feof((FILE *)fp))
+	    {
+		window_start += 1;
+		for(int i = 0; i < window_size - 1; i++)
+		{
+		    ack[i] = ack[i+1];
+		    timestamps[i] = timestamps[i+1];
+		    packet_contents[i] = packet_contents[i + 1];
+		}
+		ack[window_size - 1] = 0;
+		
+		//read/save next packet
+		int read_count = fread(file_buf,1,sizeof(file_buf)-1,(FILE *)fp);
+		strcat((char*) send_buf, (const char*) file_buf);
+		memset(packet_contents[window_size - 1],0,sizeof(packet_contents[window_size - 1]));
+		strcpy(packet_contents[window_size - 1], (const char*) send_buf);
+
+		// send next packet in window
+		int sent_count = sendto(fd, packet_contents[window_size - 1], strlen((const char*) packet_contents[window_size - 1]), 0, (struct sockaddr*) &cliaddr, sizeof(cliaddr));
+		if (sent_count < 0)
+		    perror("error sending file");
+
+		timestamps[window_size - 1] = time(NULL);
+	    }
+	    else
+	    {
+		pthread_mutex_unlock(&lock);
+		break;
+	    }
+	}
+    }*/
 }
+
 
 
 int main(int argc,char *argv[])
@@ -211,14 +270,15 @@ int main(int argc,char *argv[])
 		fseek(fp, 0L, SEEK_SET);
 
 		ack = (char *) malloc(window_size);
-		memset(ack,0,window_size);
+		memset(ack,0,sizeof(ack));
 
 		packet_contents = (char **) malloc(window_size * sizeof(char*));
 		for(int i = 0; i < window_size; i++)
 		    packet_contents[i] = (char *) malloc(BUFSIZE);
 
-		timestamps = (time_t *) malloc(window_size * sizeof(time_t*));
+		timestamps = (time_t *) malloc(window_size * sizeof(time_t));
 
+		int window_start = 0;
 		//start threading
 		pthread_t threads[2];
 		pthread_create(threads, NULL, listenthread, (void *) fp);
