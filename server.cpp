@@ -60,11 +60,10 @@ void *listenthread(void *fp)
     recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
     printf("received %d bytes\n", recvlen);
     if(recvlen < 3)
-    {
       printf("error receiving");
-    }
 
     received_buf[recvlen] = 0;
+
     // send message based off request
     if(received_buf[0] == 'A' && received_buf[1] == 'C' && received_buf[2] == 'K')
     {
@@ -74,19 +73,19 @@ void *listenthread(void *fp)
       char ack_num[30000];
       if(ack_pos[0] == '-' && ack_pos[1] == '1')
       {
-	final_ack = 1;
+        final_ack = 1;
       }
       else
       {
-	  for(i = 0; ; i++)
-	  {
-	      if(!isdigit(ack_pos[i]))
-		  break;
-	  }
-	  strncpy(ack_num, ack_pos, i);
-	  pthread_mutex_lock(&lock);
-	  ack[atoi(ack_num) - window_start] = 1;
-	  pthread_mutex_unlock(&lock);
+        for(i = 0; ; i++)
+        {
+          if(!isdigit(ack_pos[i]))
+            break;
+        }
+        strncpy(ack_num, ack_pos, i);
+        pthread_mutex_lock(&lock);
+        ack[atoi(ack_num) - window_start] = 1;
+        pthread_mutex_unlock(&lock);
       }
     }
   }
@@ -124,7 +123,7 @@ void *talkthread(void *fp)
     if (read_count > 0)
     {
       // send the file packets
-	printf("	send1\n");
+      printf("	send1\n");
       int sent_count = sendto(fd, send_buf, strlen((const char*)send_buf), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr));
       if (sent_count < 0)
       {
@@ -141,11 +140,12 @@ void *talkthread(void *fp)
   //main loop that updates window while sending
   while(1)
   {
-      int num_loops = window_size;
-      if(initial_send_count < window_size)
-      {
-	num_loops = initial_send_count;
-      }
+    int num_loops = window_size;
+    if(initial_send_count < window_size)
+    {
+      // make sure works with fewer packets than window size
+      num_loops = initial_send_count;
+    }
     int i;
     // check for ACKS for all packets sent in window
     for (i = 0; i < num_loops; i++)
@@ -159,8 +159,8 @@ void *talkthread(void *fp)
         if (difftime(time(NULL), timestamps[i]) >= TIMEOUT)
         {
           //printf("difftime: %d\n", difftime(time(NULL), timestamps[i]));
-	    printf("	send2\n");
-	    int sent_count = sendto(fd, packet_contents[i], strlen((const char*) packet_contents[i]), 0, (struct sockaddr*)&cliaddr, sizeof(cliaddr));
+          printf("	send2\n");
+          int sent_count = sendto(fd, packet_contents[i], strlen((const char*) packet_contents[i]), 0, (struct sockaddr*)&cliaddr, sizeof(cliaddr));
           if (sent_count < 0)
             perror("error sending file");
 
@@ -172,10 +172,12 @@ void *talkthread(void *fp)
         pthread_mutex_unlock(&lock);
     }
     pthread_mutex_lock(&lock);
+    
     while(1)
     {
       if(ack[0] == 1 && !feof((FILE *)fp))
       {
+        // move window
         window_start += 1;
         for(int i = 0; i < window_size - 1; i++)
         {
@@ -207,7 +209,7 @@ void *talkthread(void *fp)
         strcpy(packet_contents[window_size - 1], (const char*) send_buf);
 
         // send next packet in window
-	printf("	send3\n");
+        printf("	send3\n");
         int sent_count = sendto(fd, packet_contents[window_size - 1], strlen((const char*) packet_contents[window_size - 1]), 0, (struct sockaddr*) &cliaddr, sizeof(cliaddr));
         if (sent_count < 0)
           perror("error sending file\n");
@@ -223,49 +225,50 @@ void *talkthread(void *fp)
     //check if we have received all ACK
     if(feof((FILE *)fp))
     {
-	int all_sent = 1;
-	for(int i = 0; i < window_size; i++)
-	{
-	    if(ack[i] == '0')
-		all_sent = 0;
-	}
-	//send final message and check for ACK
-	if(all_sent)
-	{
-	    int first_run = 1;
-	    time_t final_timestamp = time(NULL);
-	    while(final_ack == 0)
-	    {
-		if (difftime(time(NULL), final_timestamp) >= TIMEOUT || first_run == 1)
-		{
-		    first_run = 0;
-		    // make the correct header
-		    char seq_num_string[50];
-		    char header[] = "SEQUENCE NUMBER: ";
+      int all_sent = 1;
+      for(int i = 0; i < window_size; i++)
+      {
+        if(ack[i] == '0')
+          all_sent = 0;
+      }
+      //send final message and check for ACK
+      if(all_sent)
+      {
+        int first_run = 1;
+        time_t final_timestamp = time(NULL);
+        while(final_ack == 0)
+        {
+          if (difftime(time(NULL), final_timestamp) >= TIMEOUT || first_run == 1)
+          {
+            first_run = 0;
+            // make the correct header
+            char seq_num_string[50];
+            char header[] = "SEQUENCE NUMBER: ";
 
-		    // update packet headers
-		    itoa(-1, seq_num_string); 
-		    memset(send_buf,0,sizeof(send_buf));
-		    strcat(header, (const char*) seq_num_string); 
-		    strcat(header, "\n");
-		    strcpy((char*) send_buf, (const char*) header);
+            // update packet headers
+            itoa(-1, seq_num_string); 
+            memset(send_buf,0,sizeof(send_buf));
+            strcat(header, (const char*) seq_num_string); 
+            strcat(header, "\n");
+            strcpy((char*) send_buf, (const char*) header);
 
-		    //read/save next packet
-		    char temp_total_packets[30000];
-		    itoa(window_size + window_start, temp_total_packets);
-		    strcat((char*) send_buf, (const char*) temp_total_packets);
+            //read/save next packet
+            char temp_total_packets[30000];
+            itoa(window_size + window_start, temp_total_packets);
+            strcat((char*) send_buf, (const char*) temp_total_packets);
 
-		    printf("buffer:\n%s\n",send_buf);
-		    // send next packet in window
-		    printf("	send4\n");
-		    int sent_count = sendto(fd, send_buf, strlen((const char*) send_buf), 0, (struct sockaddr*) &cliaddr, sizeof(cliaddr));
-		    if (sent_count < 0)
-			perror("error sending file\n");
+            printf("buffer:\n%s\n",send_buf);
+            
+            // send next packet in window
+            printf("	send4\n");
+            int sent_count = sendto(fd, send_buf, strlen((const char*) send_buf), 0, (struct sockaddr*) &cliaddr, sizeof(cliaddr));
+            if (sent_count < 0)
+              perror("error sending file\n");
 
-		    final_timestamp = time(NULL);
-		}
-	    }
-	}
+            final_timestamp = time(NULL);
+          }
+        }
+      }
     }
   }
 }
@@ -319,6 +322,7 @@ int main(int argc,char *argv[])
 
   //window size
   window_size = atoi(argv[2])/BUFSIZE;
+
   // other stuff
   for(;;)
   {
@@ -353,7 +357,7 @@ int main(int argc,char *argv[])
           packet_contents[i] = (char *) malloc(BUFSIZE + HEADERSIZE);
 
         timestamps = (time_t *) malloc(window_size * sizeof(time_t));
-	final_ack = 0;
+        final_ack = 0;
         int window_start = 0;
         //start threading
         pthread_t threads[2];
