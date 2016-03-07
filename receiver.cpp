@@ -69,11 +69,19 @@ int main(int argc,char *argv[])
     // reset buf 
     memset(buf, 0, BUFSIZE + HEADERSIZE);  
 
-    if (total_packets == received_packets_count)
+    printf("total packets: %d\n",total_packets);
+    printf("received packets: %d\n",received_packets_count);
+    if (total_packets  == received_packets_count)
     {
-      // received whole message
-      for (int k = 0; k < received_packets_count + 1; k++)
-        printf("%s", file_content[k]);
+	printf("testing");
+	FILE *fp;
+	fp = fopen("output.txt","w+");
+	// received whole message
+	for (int k = 0; k < received_packets_count; k++)
+	{
+	    fprintf(fp,"%s",file_content[k]);
+	    //printf("%s", file_content[k]);
+	}
     }
     // wait for packets from server
     addrlen = sizeof(servaddr);
@@ -84,7 +92,6 @@ int main(int argc,char *argv[])
     char* header_pos = strstr((char*) buf, "SEQUENCE NUMBER: ") + 17;
     char sequence_num[30000];
     int i;
-    printf("test:\n%s\n",buf);
     if (header_pos[0] == '-' && header_pos[1] == '1')  // last packet header: -1
     {
 	i = 2;
@@ -124,6 +131,7 @@ int main(int argc,char *argv[])
       char total_packets_string[30000];
       strncpy(total_packets_string, message_start_position, i);
       total_packets = atoi(total_packets_string);
+      received_packets_count += 1;
       continue;
     }
 
