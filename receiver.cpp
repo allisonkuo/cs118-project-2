@@ -109,9 +109,13 @@ int main(int argc,char *argv[])
     // wait for packets from server
     addrlen = sizeof(servaddr);
     recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
-
     // parse header
     // sequence number
+    if(strstr((char*) buf, "SEQUENCE NUMBER: ") == NULL)
+    {
+	printf("ERROR: \"SEQUENCE NUMBER\" NOT FOUND\n");
+	continue;
+    }
     char* header_pos = strstr((char*) buf, "SEQUENCE NUMBER: ") + 17;
     char sequence_num[30000];
     int i;
@@ -143,6 +147,7 @@ int main(int argc,char *argv[])
     // parse out message
     int sequence = atoi(sequence_num);
     char* message_start_position = strstr((char*) buf, "\n") + 1;
+
 
     // PLAN: last packet seq number = -1
     //       last packet message = # of total packets sent
