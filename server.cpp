@@ -107,7 +107,7 @@ void *listenthread(void *fp)
 	    char* ack_pos = strstr((char*) received_buf, "ACK: ") + 5;
 	    int i;
 	    char ack_num[30000];
-	    memset(ack_num,0,sizeof(ack_num));
+//	    memset(ack_num,0,sizeof(ack_num));
 	    if(ack_pos[0] == '-' && ack_pos[1] == '1')
 	    {
 		final_ack = 1;
@@ -119,6 +119,7 @@ void *listenthread(void *fp)
 		    if(!isdigit(ack_pos[i]))
 			break;
 		}
+		strncpy(ack_num, ack_pos, i);
 		pthread_mutex_lock(&lock);
 		ack[atoi(ack_num) - window_start] = 1;
 		pthread_mutex_unlock(&lock);
