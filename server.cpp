@@ -8,8 +8,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#define BUFSIZE 2048
-#define HEADERSIZE 5000
+#define BUFSIZE 5000
+#define HEADERSIZE 4000
 #define TIMEOUT 1
 #define SRAND 2
 

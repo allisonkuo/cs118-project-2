@@ -8,8 +8,8 @@
 #include <ctype.h>
 #include <poll.h>
 
-#define BUFSIZE 2048 // MAKE THE SAME SIZE AS MAX SENDER'S PACKET SIZE
-#define HEADERSIZE 5000
+#define BUFSIZE 5000 // MAKE THE SAME SIZE AS MAX SENDER'S PACKET SIZE
+#define HEADERSIZE 4000
 #define TIMEOUT 1000  // IN MILLISECONDS
 
 int main(int argc,char *argv[])
