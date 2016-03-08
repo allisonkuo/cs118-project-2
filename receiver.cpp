@@ -61,36 +61,32 @@ int main(int argc,char *argv[])
   fd_temp.fd = fd;
   fd_temp.events = POLLIN;
 
-  recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
-  if(recvlen < 0)
-    printf("error receiving");
-  else
-  {
-    while(1)
-    { 
+  while(1)
+  { 
+      res = poll(&fd_temp, 1, 3000); // 1 sec timeout
+      if (res == 0)
+      {
+	  printf("sent\n");
+	  sendto(fd, request, strlen(request), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	  continue;
+      }
+      recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
       // server received the file request
+      printf("buffer:\n%s\n",buf);
       if(strcmp((const char*) buf, "ACK") == 0)
       {
-        char ack_message[4] = "ACK";
-        sendto(fd, ack_message, strlen(ack_message), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
-        break;
+	  char ack_message[4] = "ACK";
+	  sendto(fd, ack_message, strlen(ack_message), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	  printf("sent2\n");
+	  break;
       }
       // some error in the file request, resend
       else if(strcmp((const char*) buf, "NACK") == 0)
       {
-        sendto(fd, request, strlen(request), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	  sendto(fd, request, strlen(request), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
       }
-      else
-      {
-        // timeout, resend request
-        res = poll(&fd_temp, 1, 3000); // 1 sec timeout
-        if (res == 0)
-          sendto(fd, request, strlen(request), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
-
-      }
-      recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
-    }
   }
+
 
 
   char **file_content; // to hold all the packets 
@@ -104,6 +100,7 @@ int main(int argc,char *argv[])
     file_content[j] = (char *)malloc(BUFSIZE + HEADERSIZE);
   }
 
+  int first_packet = 1;
   // listening 
   for (;;)
   {
@@ -125,9 +122,37 @@ int main(int argc,char *argv[])
       }
       fclose(fp);
     }
+
     // wait for packets from server
     addrlen = sizeof(servaddr);
-    recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
+    if(first_packet) // waiting for packet still
+    {
+      res = poll(&fd_temp, 1, 3000); // 1 sec timeout
+      if (res == 0) //timed out
+      {
+	  sendto(fd, "ACK", 4, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	  continue;
+      }
+      else
+      {
+	  recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
+	  if(strstr((char*) buf, "SEQUENCE NUMBER: ") != NULL)
+	  {
+	      first_packet = 0;
+	  }
+	  else if(strcmp((const char*)buf, "ACK") == 0)
+	  {
+	      printf("I SENT YOU AN ACK\n");
+	      sendto(fd, "ACK", 3, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	      continue;
+	  }
+      }
+    }
+  
+  else
+    {
+	recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
+    }
     // parse header
     // sequence number
     if(strstr((char*) buf, "SEQUENCE NUMBER: ") == NULL)
