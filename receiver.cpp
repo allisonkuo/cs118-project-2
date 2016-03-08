@@ -6,9 +6,11 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <ctype.h>
+#include <poll.h>
 
 #define BUFSIZE 2048 // MAKE THE SAME SIZE AS MAX SENDER'S PACKET SIZE
 #define HEADERSIZE 5000
+#define TIMEOUT 1000  // IN MILLISECONDS
 
 int main(int argc,char *argv[])
 {
@@ -53,24 +55,41 @@ int main(int argc,char *argv[])
 
   // listen for ACK or NACK from server
 
+  struct pollfd fd_temp;
+  int res;
+
+  fd_temp.fd = fd;
+  fd_temp.events = POLLIN;
+
   recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
   if(recvlen < 0)
-      printf("error receiving");
+    printf("error receiving");
   else
   {
-      while(1)
+    while(1)
+    { 
+      // server received the file request
+      if(strcmp((const char*) buf, "ACK") == 0)
       {
-	  if(strcmp((const char*) buf, "ACK") == 0)
-	  {
-	      char ack_message[4] = "ACK";
-	      sendto(fd, ack_message, strlen(ack_message), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+        char ack_message[4] = "ACK";
+        sendto(fd, ack_message, strlen(ack_message), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
         break;
-	  }
-	  else if(strcmp((const char*) buf, "NACK") == 0)
-	  {
-	      sendto(fd, request, strlen(request), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
-	  }
       }
+      // some error in the file request, resend
+      else if(strcmp((const char*) buf, "NACK") == 0)
+      {
+        sendto(fd, request, strlen(request), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+      }
+      else
+      {
+        // timeout, resend request
+        res = poll(&fd_temp, 1, 3000); // 1 sec timeout
+        if (res == 0)
+          sendto(fd, request, strlen(request), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+
+      }
+      recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
+    }
   }
 
 
@@ -97,7 +116,7 @@ int main(int argc,char *argv[])
     {
       FILE *fp;
       fp = fopen("output.txt","w+"); // output to a file 
-      
+
       // received whole message
       for (int k = 0; k < received_packets_count; k++)
       {
@@ -113,8 +132,8 @@ int main(int argc,char *argv[])
     // sequence number
     if(strstr((char*) buf, "SEQUENCE NUMBER: ") == NULL)
     {
-	printf("ERROR: \"SEQUENCE NUMBER\" NOT FOUND\n");
-	continue;
+      printf("ERROR: \"SEQUENCE NUMBER\" NOT FOUND\n");
+      continue;
     }
     char* header_pos = strstr((char*) buf, "SEQUENCE NUMBER: ") + 17;
     char sequence_num[30000];
@@ -178,9 +197,9 @@ int main(int argc,char *argv[])
 
     if(strcmp(file_content[sequence],message_start_position) != 0)
     {
-	strcpy(file_content[sequence], message_start_position);
-	//  printf("packet %i\n%s\n",sequence, file_content[sequence]);
-	received_packets_count += 1;
+      strcpy(file_content[sequence], message_start_position);
+      //  printf("packet %i\n%s\n",sequence, file_content[sequence]);
+      received_packets_count += 1;
     }
   }
 
