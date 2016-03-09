@@ -31,7 +31,7 @@ double corruption_rate;
 int mode; //0: without extra features, 1: Slow start
 int threshhold_reached;
 int stop_growing;
-
+int window_memory_size;
 // function to determine if packet is lost
 int loss_check ()
 {
@@ -210,7 +210,7 @@ void *talkthread(void *fp)
 		perror("error sending file");
 		exit(1);
 	    }
-	    printf("SENT SEQUENCE NUM: %i\n",seq_num);
+	    printf("SENT SEQUENCE NUM: %i KB\n",seq_num);
 	    timestamps[seq_num] = time(NULL);
 	    printf("TIMESTAMP OF #%d: %d\n", seq_num, (int)timestamps[seq_num]);
 
@@ -245,7 +245,7 @@ void *talkthread(void *fp)
 			perror("error sending file");          
 
 		    printf("TIMED OUT\n");
-		    printf("RETRANSMITTING SEQUENCE NUM: %d\n", i + window_start % 30);
+		    printf("RETRANSMITTING SEQUENCE NUM: %d KB\n", i + window_start % 30);
 
 		    // update timestamp of resent message
 		    timestamps[i] = time(NULL);
@@ -320,7 +320,7 @@ void *talkthread(void *fp)
 		// send next packet in window
 		int sent_count = sendto(fd, packet_contents[window_size - 1], strlen((const char*) packet_contents[window_size - 1]), 0, (struct sockaddr*) &cliaddr, sizeof(cliaddr));
 
-		printf("SENT SEQUENCE NUM: %s\n", seq_num_string);
+		printf("SENT SEQUENCE NUM: %s KB\n", seq_num_string);
 
 		if (sent_count < 0)
 		    perror("error sending file\n");
@@ -396,6 +396,7 @@ void *sslistenthread(void *fp)
 {
     unsigned char received_buf[BUFSIZE];
     int recvlen = -1;
+    window_memory_size = window_size;
     while(1)
     {
 	memset(received_buf,0,sizeof(received_buf));
@@ -424,7 +425,7 @@ void *sslistenthread(void *fp)
 	// send message based off request
 	if(received_buf[0] == 'A' && received_buf[1] == 'C' && received_buf[2] == 'K')
 	{
-	    if(threshhold_reached == 0 && window_size >= MAXWINDOW)
+	    if(window_size >= MAXWINDOW)
 	    {
 		printf("REACHED MAXWINDOWS\n");
 		printf("ENTERING STABLE MODE\n");
@@ -444,12 +445,15 @@ void *sslistenthread(void *fp)
 
 		timestamps = (time_t *) realloc(timestamps, window_size * 2 * sizeof(time_t));
 		window_size *= 2;
+		window_memory_size = window_size;
 		printf("DOUBLING WINDOW SIZE\n");
 		pthread_mutex_unlock(&lock);
 	    }
 	    else if(window_size < MAXWINDOW && stop_growing == 0)
 	    {
 		pthread_mutex_lock(&lock);
+		if(window_size == window_memory_size)
+		{
 		ack = (char *) realloc(ack, window_size + 1);
 		packet_contents = (char **) realloc(packet_contents, (window_size + 1) * sizeof(char*));
 		for(int i = window_size; i < window_size + 1; i++)
@@ -460,7 +464,10 @@ void *sslistenthread(void *fp)
 		}
 
 		timestamps = (time_t *) realloc(timestamps, (window_size + 1) * sizeof(time_t));
+		window_memory_size += 1;
+		}
 		window_size += 1;
+		
 		pthread_mutex_unlock(&lock);
 		printf("WINDOW SIZE: %d\n", window_size);
 	    }
@@ -560,7 +567,7 @@ void *sstalkthread(void *fp)
 		perror("error sending file");
 		exit(1);
 	    }
-	    printf("SENT SEQUENCE NUM: %i\n",seq_num);
+	    printf("SENT SEQUENCE NUM: %i KB\n",seq_num);
 	    timestamps[seq_num] = time(NULL);
 	    printf("TIMESTAMP OF #%d: %d\n", seq_num, (int)timestamps[seq_num]);
 
@@ -593,6 +600,7 @@ void *sstalkthread(void *fp)
 		{
 		    if(threshhold_reached == 0)
 		    {
+			window_size = window_size/2;
 			printf("SSTHRESH REACHED\nENTERING CONGESTION AVOIDANCE MODE\n");
 			threshhold_reached = 1;
 		    }
@@ -601,7 +609,7 @@ void *sstalkthread(void *fp)
 			perror("error sending file");          
 
 		    printf("TIMED OUT\n");
-		    printf("RETRANSMITTING SEQUENCE NUM: %d\n", i + window_start % 30);
+		    printf("RETRANSMITTING SEQUENCE NUM: %d KB\n", i + window_start % 30);
 
 		    // update timestamp of resent message
 		    timestamps[i] = time(NULL);
@@ -689,7 +697,7 @@ void *sstalkthread(void *fp)
 		    // send next packet in window
 		    int sent_count = sendto(fd, packet_contents[i], strlen((const char*) packet_contents[i]), 0, (struct sockaddr*) &cliaddr, sizeof(cliaddr));
 
-		    printf("SENT SEQUENCE NUM: %s\n", seq_num_string); 
+		    printf("SENT SEQUENCE NUM: %s KB\n", seq_num_string); 
 
 		    if (sent_count < 0)
 			perror("error sending file\n");
@@ -782,7 +790,7 @@ void *sstalkthread(void *fp)
 		// send next packet in window
 		int sent_count = sendto(fd, packet_contents[two_found], strlen((const char*) packet_contents[two_found]), 0, (struct sockaddr*) &cliaddr, sizeof(cliaddr));
 
-		printf("SENT SEQUENCE NUM: %s\n", seq_num_string); 
+		printf("SENT SEQUENCE NUM: %s KB\n", seq_num_string); 
 
 		if (sent_count < 0)
 		    perror("error sending file\n");
@@ -1027,11 +1035,7 @@ int main(int argc,char *argv[])
 	    {
 		stop_growing = 0;
 		window_size = 1;
-		if(threshhold_reached == 0)
-		{
-		    printf("SSTHRESH REACHED\nENTERING CONGESTION AVOIDANCE MODE\n");
-		    threshhold_reached = 0;
-		}
+		threshhold_reached = 0;
 		ack = (char *) malloc(window_size);
 		memset(ack,0,sizeof(ack));
 
