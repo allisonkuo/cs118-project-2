@@ -285,7 +285,7 @@ int main(int argc,char *argv[])
 	printf("CORRUPTED PACKET #%s\n", r_seq_num);
 	continue;
     }
-    printf("RECEIVED SEQUENCE NUMBER: %s\n",r_seq_num);
+    printf("RECEIVED SEQUENCE NUMBER: %s KB\n",r_seq_num);
     // send ack if received packet
     char ack[30000] = "ACK: ";  // ACK
     strcat(ack, sequence_num);
