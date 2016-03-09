@@ -139,7 +139,7 @@ void *listenthread(void *fp)
 		  index = index % 5;*/
 		int index = atoi(ack_num) % 30;
 
-		printf("RECEIVED: %d\n", index);
+		printf("RECEIVED: ACK %d\n", index);
 		ack[atoi(ack_num) - window_start] = 1;
 		pthread_mutex_unlock(&lock);
 	    }
@@ -341,7 +341,7 @@ void *talkthread(void *fp)
 	    pthread_mutex_lock(&lock);
 	    for(int i = 0; i < window_size; i++)
 	    {
-		if(ack[i] == '0')
+		if(ack[i] == 0)
 		    all_sent = 0;
 	    }
 	    pthread_mutex_unlock(&lock);
@@ -485,7 +485,7 @@ void *sslistenthread(void *fp)
 	      index = index % 5;*/
 	    int index = atoi(ack_num) % 30;
 
-	    printf("RECEIVED: %d\n", index);
+	    printf("RECEIVED: ACK %d\n", index);
 	    ack[atoi(ack_num) - window_start] = 1;
 	    pthread_mutex_unlock(&lock);
 	}
@@ -684,14 +684,14 @@ void *sstalkthread(void *fp)
 		    // send next packet in window
 		    int sent_count = sendto(fd, packet_contents[i], strlen((const char*) packet_contents[i]), 0, (struct sockaddr*) &cliaddr, sizeof(cliaddr));
 
-		    printf("SENT SEQUENCE NUM: %s\n", packet_num_string);//seq_num_string); //TODO
+		    printf("SENT SEQUENCE NUM: %s\n", seq_num_string); 
 
 		    if (sent_count < 0)
 			perror("error sending file\n");
 
 		    timestamps[i] = time(NULL);
 		    ack[i] = 0;
-		    printf("TIMESTAMP OF #%s: %d\n", packet_num_string, (int)timestamps[i]);//seq_num_string, (int)timestamps[i]); //TODO
+		    printf("TIMESTAMP OF #%s: %d\n", seq_num_string, (int)timestamps[i]); 
 		}
 		pthread_mutex_unlock(&lock);
 	    }
@@ -776,14 +776,14 @@ void *sstalkthread(void *fp)
 		// send next packet in window
 		int sent_count = sendto(fd, packet_contents[two_found], strlen((const char*) packet_contents[two_found]), 0, (struct sockaddr*) &cliaddr, sizeof(cliaddr));
 
-		printf("xSENT SEQUENCE NUM: %s\n", packet_num_string);//seq_num_string); //TODO
+		printf("xSENT SEQUENCE NUM: %s\n", seq_num_string); 
 
 		if (sent_count < 0)
 		    perror("error sending file\n");
 
 		timestamps[two_found] = time(NULL);
 		ack[two_found] = 0;
-		printf("TIMESTAMP OF #%s: %d\n", packet_num_string, (int)timestamps[two_found]);//seq_num_string, (int)timestamps[i]); //TODO
+		printf("TIMESTAMP OF #%s: %d\n", seq_num_string, (int)timestamps[i]); 
 
 		pthread_mutex_unlock(&lock);
 	    }
@@ -795,7 +795,7 @@ void *sstalkthread(void *fp)
 	    pthread_mutex_lock(&lock);
 	    for(int i = 0; i < window_size; i++)
 	    {
-		if(ack[i] == 0 || ack[i] == 2) //TODO other one checks for '0'?
+		if(ack[i] == 0 || ack[i] == 2) 
 		    all_sent = 0;
 	    }
 	    pthread_mutex_unlock(&lock);
