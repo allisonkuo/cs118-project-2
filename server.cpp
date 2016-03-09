@@ -41,6 +41,7 @@ int loss_check ()
   }
 }
 
+// function to determine if packet is corrupted
 int corruption_check ()
 {
   int random = rand() % 1000;
@@ -53,6 +54,7 @@ int corruption_check ()
     return 0; //corrupted
   }
 }
+
 // simple function to convert integer to ascii
 void itoa (int n, char s[]) 
 {
@@ -88,13 +90,19 @@ void *listenthread(void *fp)
     // listen for receiver request/ACKs
     printf("\nwaiting\n");
     recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
-    if(loss_check() || corruption_check())
+ 
+    if(loss_check())
     {
-      printf("DROPPED %d bytes\n", recvlen);
-      printf("DROPPED: %s\n",received_buf);
+      printf("LOST PACKET\n");
       continue;
     }
-    printf("received %d bytes\n", recvlen);
+    if(corruption_check())
+    {
+      printf("CORRUPTED PACKET\n");
+      continue;
+    }
+
+    //printf("received %d bytes\n", recvlen);
     if(recvlen < 3)
       printf("error receiving");
 
@@ -103,7 +111,7 @@ void *listenthread(void *fp)
     // send message based off request
     if(received_buf[0] == 'A' && received_buf[1] == 'C' && received_buf[2] == 'K')
     {
-      printf("received: %s\n",received_buf);
+      printf("RECEIVED: %s\n",received_buf);
       char* ack_pos = strstr((char*) received_buf, "ACK: ") + 5;
       int i;
       char ack_num[30000];
@@ -166,8 +174,10 @@ void *talkthread(void *fp)
         perror("error sending file");
         exit(1);
       }
-      printf("seq_num: %i\n",seq_num);
+      printf("SENT SEQUENCE NUM: %i\n",seq_num);
       timestamps[seq_num] = time(NULL);
+      printf("TIMESTAMP OF #%d: %d\n", seq_num, (int)timestamps[seq_num]);
+      
       seq_num += 1;
     }
     initial_send_count += 1;
@@ -196,10 +206,14 @@ void *talkthread(void *fp)
         {
           int sent_count = sendto(fd, packet_contents[i], strlen((const char*) packet_contents[i]), 0, (struct sockaddr*)&cliaddr, sizeof(cliaddr));
           if (sent_count < 0)
-            perror("error sending file");
+            perror("error sending file");          
+
+          printf("TIMED OUT\n");
+          printf("RETRANSMITTING SEQUENCE NUM: %d\n", i + window_start);
 
           // update timestamp of resent message
           timestamps[i] = time(NULL);
+          printf("TIMESTAMP OF #%d: %d\n", i + window_start, (int)timestamps[i]);
         }
       }
       else
@@ -247,10 +261,14 @@ void *talkthread(void *fp)
 
         // send next packet in window
         int sent_count = sendto(fd, packet_contents[window_size - 1], strlen((const char*) packet_contents[window_size - 1]), 0, (struct sockaddr*) &cliaddr, sizeof(cliaddr));
+
+        printf("SENT SEQUENCE NUM: %s\n", seq_num_string);
+
         if (sent_count < 0)
           perror("error sending file\n");
 
         timestamps[window_size - 1] = time(NULL);
+        printf("TIMESTAMP OF #%s: %d\n", seq_num_string, (int)timestamps[window_size - 1]);
       }
       else
       {
@@ -294,8 +312,8 @@ void *talkthread(void *fp)
             char temp_total_packets[30000];
 
             //TESTING
-            printf("window_start %d\n", window_start);
-            printf("window_size %d\n", window_size);
+            //printf("window_start %d\n", window_start);
+            //printf("window_size %d\n", window_size);
 
             itoa(num_loops + window_start, temp_total_packets);
             strcat((char*) send_buf, (const char*) temp_total_packets);
@@ -373,98 +391,116 @@ int main(int argc,char *argv[])
   // other stuff
   for(;;)
   {
-      memset(file_name,0,sizeof(file_name));
-      // listen for receiver request/ACKs
+    memset(file_name,0,sizeof(file_name));
+    // listen for receiver request/ACKs
     printf("\nwaiting\n");
     recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
-    if(loss_check() || corruption_check())
-      continue;
+    if(loss_check())
+    {     
+      printf("LOST PACKET\n");
+       continue;
+    }
 
-    printf("received %d bytes\n", recvlen);
+    if (corruption_check())
+    {
+      printf("CORRUPTED PACKET\n");
+      continue;
+    }
+
+    //printf("received %d bytes\n", recvlen);
     if(recvlen > 0)
     {
       received_buf[recvlen] = 0;
-      printf("requested file: %s\n",received_buf);
+      printf("RECEIVED FILE REQUEST: %s\n",received_buf);
     }
 
 
     // send message based off request
     if(received_buf[0] != 'A' && received_buf[1] != 'C' && received_buf[2] != 'K')
     {
-	fp = fopen((const char*) received_buf, "r");
-	if(fp == NULL || corruption_check())
-	{
-	    perror("file not found");
-	    if (sendto(fd, "NACK", 4, 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0)
-		perror("error sending nack");
-	    continue;
-	}
-	else if(loss_check())
-	{
-	    printf("loss check!");
-	    continue;
-	}
-	else
-	{
-	    strcpy((char *) file_name, (const char*) received_buf);
-	    if (sendto(fd, "ACK", 3, 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0)
-		perror("error sending ack");
-	    while(1)
-	    {
-		memset(received_buf, 0, sizeof(received_buf)); 
-		recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
-		printf("received buf:\n%s\n",received_buf);
-		if (recvlen < 0)
-		{
-		    printf("error receiving message\n");
-		    continue;
-		}
-		if(loss_check() || corruption_check())
-		{
-		    printf("another loss check!\n");
-		    memset(received_buf,0,sizeof(received_buf));
-		    continue;
-		}
-		else if (strcmp((const char *)received_buf,"ACK") == 0)
-		{
-		    printf("ACK check!\n");
-		    break;
-		}
-		else// if(strcmp(received_buf,file_name) == 0)
-		{
-		    if (sendto(fd, "ACK", 3, 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0)
-			perror("error sending ack");
-		}
-	    }
-	}
-	fseek(fp, 0L, SEEK_END);
-	filesize = ftell(fp);
-	fseek(fp, 0L, SEEK_SET);
+      fp = fopen((const char*) received_buf, "r");
+      if(fp == NULL || corruption_check())
+      {
+        perror("file not found\n");
+        printf("CORRUPTED PACKET\n");
+        if (sendto(fd, "NACK", 4, 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0)
+          perror("error sending nack");
+        continue;
+      }
+      else if(loss_check())
+      {
+        printf("LOST PACKET\n");
+        continue;
+      }
+      else
+      {
+        strcpy((char *) file_name, (const char*) received_buf);
+        if (sendto(fd, "ACK", 3, 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0)
+          perror("error sending ack");
+        // waiting for receiver to ACK about the file
+        while(1)
+        {
+          memset(received_buf, 0, sizeof(received_buf)); 
+          recvlen = recvfrom(fd, received_buf, BUFSIZE, 0, (struct sockaddr *)&cliaddr, &addrlen);
+          //printf("received buf:\n%s\n",received_buf);
+          if (recvlen < 0)
+          {
+            printf("error receiving message\n");
+            continue;
+          }
+          if(loss_check())
+          {
+            printf("LOST PACKET\n");
+            memset(received_buf,0,sizeof(received_buf));
+            continue;
+          }
+          else if (corruption_check())
+          {
+            printf("CORRUPTED PACKET\n");
+            memset(received_buf,0,sizeof(received_buf));
+            continue;
+          }
+          else if (strcmp((const char *)received_buf,"ACK") == 0)
+          {
+            printf("RECEIVED ACK\n");
+            break;
+          }
+          else// if(strcmp(received_buf,file_name) == 0)
+          {
+            printf("RECEIVED FILE REQUEST: %s\n", received_buf);
+            if (sendto(fd, "ACK", 3, 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0)
+              perror("error sending ack");
+          }
+        }
+      }
+      fseek(fp, 0L, SEEK_END);
+      filesize = ftell(fp);
+      fseek(fp, 0L, SEEK_SET);
 
-	ack = (char *) malloc(window_size);
-	memset(ack,0,sizeof(ack));
+      ack = (char *) malloc(window_size);
+      memset(ack,0,sizeof(ack));
 
-	packet_contents = (char **) malloc(window_size * sizeof(char*));
-	for(int i = 0; i < window_size; i++)
-	    packet_contents[i] = (char *) malloc(BUFSIZE + HEADERSIZE);
+      packet_contents = (char **) malloc(window_size * sizeof(char*));
+      for(int i = 0; i < window_size; i++)
+        packet_contents[i] = (char *) malloc(BUFSIZE + HEADERSIZE);
 
-	timestamps = (time_t *) malloc(window_size * sizeof(time_t));
-	final_ack = 0;
-	int window_start = 0;
-	//start threading
-	pthread_t threads[2];
-	pthread_create(threads, NULL, listenthread, (void *) fp);
-	pthread_create(threads+1,NULL, talkthread, (void *) fp);
-	pthread_join(threads[0],NULL);
-	pthread_join(threads[1],NULL);
+      timestamps = (time_t *) malloc(window_size * sizeof(time_t));
+      final_ack = 0;
+      int window_start = 0;
+      //start threading
+      pthread_t threads[2];
+      pthread_create(threads, NULL, listenthread, (void *) fp);
+      pthread_create(threads+1,NULL, talkthread, (void *) fp);
+      pthread_join(threads[0],NULL);
+      pthread_join(threads[1],NULL);
 
-	free(ack);
-	free(packet_contents);
-	free(timestamps);
+      free(ack);
+      free(packet_contents);
+      free(timestamps);
     }
     else
     {
-	printf("received ACK\n");
+      printf("received ACK\n");
     }
   }
 
