@@ -339,7 +339,7 @@ void *talkthread(void *fp)
 	{
 	    int all_sent = 1;
 	    pthread_mutex_lock(&lock);
-	    for(int i = 0; i < window_size; i++)
+	    for(int i = 0; i < num_loops; i++)
 	    {
 		if(ack[i] == 0)
 		    all_sent = 0;
