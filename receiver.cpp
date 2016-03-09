@@ -10,8 +10,36 @@
 
 #define BUFSIZE 5000 // MAKE THE SAME SIZE AS MAX SENDER'S PACKET SIZE
 #define HEADERSIZE 4000
-#define TIMEOUT 1000  // IN MILLISECONDS
+#define TIMEOUT 3000  // IN MILLISECONDS
 
+// function to determine if packet is lost
+/*int loss_check ()
+{
+    int random = rand() % 1000;
+    if (random < loss_rate * 1000)
+    {
+	return 1; //lost
+    }
+    else
+    {
+	return 0; //not lost
+    }
+}
+
+// function to determine if packet is corrupted
+int corruption_check ()
+{
+    int random = rand() % 1000;
+    if (random < corruption_rate * 1000)
+    {
+	return 1; //corrupted
+    }
+    else
+    {
+	return 0; //corrupted
+    }
+}
+*/
 int main(int argc,char *argv[])
 {
   int fd, recvlen;
@@ -53,6 +81,7 @@ int main(int argc,char *argv[])
     exit(1); 
   }
 
+  printf("SENT FILE REQUEST: %s\n",request);
   // listen for ACK or NACK from server
 
   struct pollfd fd_temp;
@@ -68,22 +97,30 @@ int main(int argc,char *argv[])
       {
 	  printf("sent\n");
 	  sendto(fd, request, strlen(request), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	  printf("SENT FILE REQUEST (RETRANSMITTED): %s\n",request);
 	  continue;
       }
       recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
       // server received the file request
-      printf("buffer:\n%s\n",buf);
+      //printf("buffer:\n%s\n",buf);
+      if(recvlen <= 0)
+      {
+	  perror("error receiving file");
+      }
       if(strcmp((const char*) buf, "ACK") == 0)
       {
+	  printf("RECEIVED ACK\n");
 	  char ack_message[4] = "ACK";
 	  sendto(fd, ack_message, strlen(ack_message), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
-	  printf("sent2\n");
+	  printf("SENT ACK\n");
 	  break;
       }
       // some error in the file request, resend
       else if(strcmp((const char*) buf, "NACK") == 0)
       {
+	  printf("RECEIVED NACK\n");
 	  sendto(fd, request, strlen(request), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	  printf("SENT FILE REQUEST (RETRANSMITTED): %s\n", request);
       }
   }
 
@@ -130,7 +167,9 @@ int main(int argc,char *argv[])
       res = poll(&fd_temp, 1, 3000); // 1 sec timeout
       if (res == 0) //timed out
       {
-	  sendto(fd, "ACK", 4, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	  char ack_message[4] = "ACK";
+	  sendto(fd, ack_message, sizeof(ack_message), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	  printf("SENT ACK (RETRANSMITTED)\n");
 	  continue;
       }
       else
@@ -142,8 +181,10 @@ int main(int argc,char *argv[])
 	  }
 	  else if(strcmp((const char*)buf, "ACK") == 0)
 	  {
-	      printf("I SENT YOU AN ACK\n");
-	      sendto(fd, "ACK", 3, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	      char ack_message[4] = "ACK";
+	      printf("RECEIVED RETRANSMITTED ACK\n");
+	      sendto(fd, ack_message, sizeof(ack_message), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	      printf("SENT ACK (RETRANSMITTED)");
 	      continue;
 	  }
       }
@@ -181,12 +222,13 @@ int main(int argc,char *argv[])
     // extract packet's sequence number
     strncpy(sequence_num, header_pos,i);
 
-    printf("sequence num: %s\n",sequence_num);
+    printf("RECEIVED PACKET WITH SEQUENCE NUMBER: %s\n",sequence_num);
     // send ack if received packet
     char ack[30000] = "ACK: ";  // ACK
     strcat(ack, sequence_num);
-    if (sendto(fd, ack, strlen(ack), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) 
+    if (sendto(fd, ack, strlen(ack), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
       perror("send to failed"); 
+    printf("SENT ACK %s\n", sequence_num);
 
     // parse out message
     int sequence = atoi(sequence_num);
@@ -227,5 +269,4 @@ int main(int argc,char *argv[])
       received_packets_count += 1;
     }
   }
-
 }

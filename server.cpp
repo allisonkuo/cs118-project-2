@@ -10,7 +10,7 @@
 
 #define BUFSIZE 5000
 #define HEADERSIZE 4000
-#define TIMEOUT 1
+#define TIMEOUT 3
 #define SRAND 2
 
 //GLOBAL VARIABLES
@@ -423,7 +423,8 @@ int main(int argc,char *argv[])
       {
         perror("file not found\n");
         printf("CORRUPTED PACKET\n");
-        if (sendto(fd, "NACK", 4, 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0)
+	char nack_message[5] = "NACK";
+        if (sendto(fd, nack_message, sizeof(nack_message), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0)
           perror("error sending nack");
         continue;
       }
@@ -435,7 +436,8 @@ int main(int argc,char *argv[])
       else
       {
         strcpy((char *) file_name, (const char*) received_buf);
-        if (sendto(fd, "ACK", 3, 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0)
+        char ack_message[4] = "ACK";
+	if (sendto(fd, ack_message, sizeof(ack_message), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0)
           perror("error sending ack");
         // waiting for receiver to ACK about the file
         while(1)
@@ -468,7 +470,8 @@ int main(int argc,char *argv[])
           else// if(strcmp(received_buf,file_name) == 0)
           {
             printf("RECEIVED FILE REQUEST: %s\n", received_buf);
-            if (sendto(fd, "ACK", 3, 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0)
+	    char ack_message[4] = "ACK";
+            if (sendto(fd, ack_message, sizeof(ack_message), 0, (struct sockaddr *)&cliaddr, sizeof(cliaddr)) <0)
               perror("error sending ack");
           }
         }
