@@ -8,12 +8,14 @@
 #include <ctype.h>
 #include <poll.h>
 
-#define BUFSIZE 5000 // MAKE THE SAME SIZE AS MAX SENDER'S PACKET SIZE
-#define HEADERSIZE 4000
-#define TIMEOUT 3000  // IN MILLISECONDS
+#define BUFSIZE 948 // MAKE THE SAME SIZE AS MAX SENDER'S PACKET SIZE
+#define HEADERSIZE 52
+#define TIMEOUT 2000  // IN MILLISECONDS
+#define SRAND 5
 
+double loss_rate, corruption_rate;
 // function to determine if packet is lost
-/*int loss_check ()
+int loss_check ()
 {
     int random = rand() % 1000;
     if (random < loss_rate * 1000)
@@ -36,10 +38,10 @@ int corruption_check ()
     }
     else
     {
-	return 0; //corrupted
+	return 0; //not corrupted
     }
 }
-*/
+
 int main(int argc,char *argv[])
 {
   int fd, recvlen;
@@ -50,6 +52,9 @@ int main(int argc,char *argv[])
 
   char *request = argv[3]; // request message
 
+  loss_rate = atof(argv[4]);
+  corruption_rate = atof(argv[5]);
+  srand(SRAND);
   // set server address information
   memset((char*)&servaddr, 0, sizeof(servaddr)); 
   servaddr.sin_family = AF_INET; 
@@ -107,6 +112,16 @@ int main(int argc,char *argv[])
       {
 	  perror("error receiving file");
       }
+      if(loss_check())
+      {
+	  printf("LOST PACKET\n");
+	  continue;
+      }
+      if(corruption_check())
+      {
+	printf("CORRUPTED PACKET\n");
+	continue;
+      }
       if(strcmp((const char*) buf, "ACK") == 0)
       {
 	  printf("RECEIVED ACK\n");
@@ -127,7 +142,7 @@ int main(int argc,char *argv[])
 
 
   char **file_content; // to hold all the packets 
-  int max_packets = 1;
+  int max_packets = 100;
   int received_packets_count = 0;
   int total_packets = -1;
   file_content = (char **) malloc(100 * sizeof(char*));
@@ -135,6 +150,7 @@ int main(int argc,char *argv[])
   for(j = 0; j < 100; j++)
   {
     file_content[j] = (char *)malloc(BUFSIZE + HEADERSIZE);
+    memset(file_content[j],0,sizeof(file_content[j]));
   }
 
   int first_packet = 1;
@@ -146,7 +162,7 @@ int main(int argc,char *argv[])
 
     printf("total packets: %d\n",total_packets);
     printf("received packets: %d\n",received_packets_count);
-    if (total_packets  == received_packets_count)
+    if (total_packets == received_packets_count)
     {
       FILE *fp;
       fp = fopen("output.txt","w+"); // output to a file 
@@ -158,8 +174,11 @@ int main(int argc,char *argv[])
         //printf("%s", file_content[k]);
       }
       fclose(fp);
+      exit(0);
     }
 
+    int lost = 0;
+    int corrupted = 0;
     // wait for packets from server
     addrlen = sizeof(servaddr);
     if(first_packet) // waiting for packet still
@@ -175,7 +194,18 @@ int main(int argc,char *argv[])
       else
       {
 	  recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
-	  if(strstr((char*) buf, "SEQUENCE NUMBER: ") != NULL)
+	  if(loss_check())
+	  {
+	      printf("LOST PACKET\n");
+		continue;
+	  }
+	  if(corruption_check())
+	  {
+	      printf("LOST PACKET\n");
+	      continue;
+	  }
+	  
+	  if(strstr((char*) buf, "PACKET NUMBER: ") != NULL)
 	  {
 	      first_packet = 0;
 	  }
@@ -193,20 +223,32 @@ int main(int argc,char *argv[])
   else
     {
 	recvlen = recvfrom(fd, buf, BUFSIZE + HEADERSIZE, 0, (struct sockaddr *)&servaddr, &addrlen);
+	if(loss_check())
+	{
+	    lost = 1;
+	}
+	if(corruption_check())
+	{
+	    corrupted = 1;
+	}
     }
     // parse header
     // sequence number
-    if(strstr((char*) buf, "SEQUENCE NUMBER: ") == NULL)
+    if(strstr((char*) buf, "PACKET NUMBER: ") == NULL)
     {
-      printf("ERROR: \"SEQUENCE NUMBER\" NOT FOUND\n");
+      printf("ERROR: \"PACKET NUMBER\" NOT FOUND\n");
       continue;
     }
-    char* header_pos = strstr((char*) buf, "SEQUENCE NUMBER: ") + 17;
+    char* header_pos = strstr((char*) buf, "PACKET NUMBER: ") + 15;
+    char* seq_pos = strstr((char*) buf, "SEQUENCE NUMBER: ") + 17;
     char sequence_num[30000];
+    char r_seq_num[30000];
     int i;
+    int j;
     if (header_pos[0] == '-' && header_pos[1] == '1')  // last packet header: -1
     {
       i = 2;
+      j = 0;
     }
 
     else
@@ -216,19 +258,41 @@ int main(int argc,char *argv[])
         if (!isdigit(header_pos[i]))
           break;
       }
+      for (j = 0; ; j++)
+      {
+	if (!isdigit(seq_pos[j]))
+	  break;
+      }
     }
     memset(sequence_num,0,sizeof(sequence_num));
+    memset(r_seq_num,0,sizeof(r_seq_num));
 
     // extract packet's sequence number
     strncpy(sequence_num, header_pos,i);
+    strncpy(r_seq_num, seq_pos,j);
 
-    printf("RECEIVED PACKET WITH SEQUENCE NUMBER: %s\n",sequence_num);
+    if(lost == 1)
+    {
+	lost = 0;
+	corrupted = 0;
+	printf("LOST PACKET #%s\n", r_seq_num);
+	continue;
+    }
+    if(corrupted == 1)
+    {
+	lost = 0;
+	corrupted = 0;
+	printf("CORRUPTED PACKET #%s\n", r_seq_num);
+	continue;
+    }
+    //printf("RECEIVED PACKET NUMBER: %s\n",sequence_num);
+    printf("RECEIVED SEQUENCE NUMBER: %s\n",r_seq_num);
     // send ack if received packet
     char ack[30000] = "ACK: ";  // ACK
     strcat(ack, sequence_num);
     if (sendto(fd, ack, strlen(ack), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
       perror("send to failed"); 
-    printf("SENT ACK %s\n", sequence_num);
+    printf("SENT ACK %s\n", r_seq_num);
 
     // parse out message
     int sequence = atoi(sequence_num);
@@ -252,20 +316,20 @@ int main(int argc,char *argv[])
     }
 
     // add to message buffer
+
     while (sequence >= max_packets) //allocate more memory
     {
-      file_content = (char **) realloc(file_content, max_packets * 2 * sizeof(char*));
-      for(j = max_packets; j < max_packets * 2; j++)
-      {
-        file_content[j] = (char *) malloc(BUFSIZE + HEADERSIZE);
-      }
-      max_packets = max_packets * 2;
+	file_content = (char **) realloc(file_content, max_packets * 2 * sizeof(char*));
+	for(j = max_packets; j < max_packets * 2; j++)
+	{
+	    file_content[j] = (char *) malloc(BUFSIZE + HEADERSIZE);
+	    memset(file_content[j],0,sizeof(file_content[j]));
+	}
+	max_packets = max_packets * 2;
     }
-
     if(strcmp(file_content[sequence],message_start_position) != 0)
     {
       strcpy(file_content[sequence], message_start_position);
-      //  printf("packet %i\n%s\n",sequence, file_content[sequence]);
       received_packets_count += 1;
     }
   }

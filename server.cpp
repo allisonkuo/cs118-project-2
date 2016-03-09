@@ -8,10 +8,10 @@
 #include <time.h>
 #include <unistd.h>
 
-#define BUFSIZE 5000
-#define HEADERSIZE 4000
-#define TIMEOUT 3
-#define SRAND 2
+#define BUFSIZE 948
+#define HEADERSIZE 52
+#define TIMEOUT 2
+#define SRAND 3
 
 //GLOBAL VARIABLES
 int fd; //socket
@@ -51,7 +51,7 @@ int corruption_check ()
   }
   else
   {
-    return 0; //corrupted
+    return 0; //not corrupted
   }
 }
 
@@ -111,7 +111,6 @@ void *listenthread(void *fp)
     // send message based off request
     if(received_buf[0] == 'A' && received_buf[1] == 'C' && received_buf[2] == 'K')
     {
-      printf("RECEIVED: %s\n",received_buf);
       char* ack_pos = strstr((char*) received_buf, "ACK: ") + 5;
       int i;
       char ack_num[30000];
@@ -129,6 +128,13 @@ void *listenthread(void *fp)
         }
         strncpy(ack_num, ack_pos, i);
         pthread_mutex_lock(&lock);
+	/*int index = atoi(ack_num) - window_start;
+	if(index < 0)
+	    index += 30;
+	index = index % 5;*/
+	int index = atoi(ack_num) % 30;
+
+	printf("RECEIVED: %d\n", index);
         ack[atoi(ack_num) - window_start] = 1;
         pthread_mutex_unlock(&lock);
       }
@@ -143,22 +149,47 @@ void *talkthread(void *fp)
   unsigned char file_buf[BUFSIZE];
   unsigned char send_buf[BUFSIZE + HEADERSIZE];      
   int seq_num = 0;
+  int packet_num = 0;
   int initial_send_count = 0;
 
   //initial loop to send window_size number of packets
   while(initial_send_count < window_size && !feof((FILE *)fp))
   { 
-    char seq_num_string[50];
-    char header[] = "SEQUENCE NUMBER: ";
+      char packet_num_string[50];
+      char seq_num_string[50];
+    char header[] = "PACKET NUMBER: ";
+    char header2[] = "SEQUENCE NUMBER: ";
+    if(seq_num >= 30)
+	seq_num = 0;
 
     // create packet headers
+    itoa(packet_num, packet_num_string);
     itoa(seq_num, seq_num_string); 
 
     memset(send_buf,0,sizeof(send_buf));
-    strcat(header, (const char*) seq_num_string); 
-    strcat(header, "\n");
     strcpy((char*) send_buf, (const char*) header);
+    if (packet_num < 10)
+	strcat((char*) send_buf, "00000");
+    else if (packet_num < 100)
+	strcat((char*) send_buf, "0000");
+    else if (packet_num < 1000)
+	strcat((char*) send_buf, "000");
+    else if (packet_num < 10000)
+	strcat((char*) send_buf, "00");
+    else if (packet_num < 100000)
+	strcat((char*) send_buf, "0");
+    
+    strcat((char*) send_buf, (const char*) packet_num_string);
+    strcat((char*) send_buf, "; ");
 
+    strcat((char*) send_buf, (const char*) header2);
+    if(seq_num < 10)
+    {
+	strcat((char*) send_buf, "0");
+    }
+    strcat((char*) send_buf, (const char*) seq_num_string); 
+    strcat((char*) send_buf, "\n");
+    
     // place file into buffer
     int read_count;
     memset(file_buf,0,sizeof(file_buf));
@@ -178,11 +209,11 @@ void *talkthread(void *fp)
       timestamps[seq_num] = time(NULL);
       printf("TIMESTAMP OF #%d: %d\n", seq_num, (int)timestamps[seq_num]);
       
+      packet_num += 1;
       seq_num += 1;
     }
     initial_send_count += 1;
   }
-
   //main loop that updates window while sending
   while(1)
   {
@@ -209,11 +240,11 @@ void *talkthread(void *fp)
             perror("error sending file");          
 
           printf("TIMED OUT\n");
-          printf("RETRANSMITTING SEQUENCE NUM: %d\n", i + window_start);
+          printf("RETRANSMITTING SEQUENCE NUM: %d\n", i + window_start % 30);
 
           // update timestamp of resent message
           timestamps[i] = time(NULL);
-          printf("TIMESTAMP OF #%d: %d\n", i + window_start, (int)timestamps[i]);
+          printf("TIMESTAMP OF #%d: %d\n", i + window_start % 30, (int)timestamps[i]);
         }
       }
       else
@@ -239,21 +270,43 @@ void *talkthread(void *fp)
 
         pthread_mutex_unlock(&lock);
         // make the correct header
+	char packet_num_string[50];
         char seq_num_string[50];
-        char header[] = "SEQUENCE NUMBER: ";
+        char header[] = "PACKET NUMBER: ";
+	char header2[] = "SEQUENCE NUMBER: ";
 
         // update packet headers
-        itoa(window_start + window_size - 1, seq_num_string); 
+	itoa(window_start + window_size - 1, packet_num_string);
+        itoa((window_start % 30 + window_size - 1) % 30, seq_num_string); 
 
         // reset the buffers        
         memset(send_buf,0,sizeof(send_buf));
         memset(file_buf,0,sizeof(file_buf));
 
-        strcat(header, (const char*) seq_num_string); 
-        strcat(header, "\n");
-        strcpy((char*) send_buf, (const char*) header);
 
-        //read/save next packet
+	strcpy((char*) send_buf, (const char*) header);
+	strcpy((char*) send_buf, (const char*) header);
+	if (packet_num < 10)
+	    strcat((char*) send_buf, "00000");
+	else if (packet_num < 100)
+	    strcat((char*) send_buf, "0000");
+	else if (packet_num < 1000)
+	    strcat((char*) send_buf, "000");
+	else if (packet_num < 10000)
+	    strcat((char*) send_buf, "00");
+	else if (packet_num < 100000)
+	    strcat((char*) send_buf, "0");
+	strcat((char*) send_buf, (const char*) packet_num_string);
+	strcat((char*) send_buf, "; ");
+	strcat((char*) send_buf, (const char*) header2);
+	if(atoi(seq_num_string) < 10)
+	{
+           strcat((char *)send_buf,"0");
+	}
+        strcat((char *) send_buf, (const char*) seq_num_string); 
+        strcat((char *)send_buf, "\n");
+        
+	//read/save next packet
         int read_count = fread(file_buf,1,sizeof(file_buf)-1,(FILE *)fp); 
         strcat((char*) send_buf, (const char*) file_buf);
         memset(packet_contents[window_size - 1],0,sizeof(packet_contents[window_size - 1]));
@@ -299,7 +352,7 @@ void *talkthread(void *fp)
             first_run = 0;
             // make the correct header
             char seq_num_string[50];
-            char header[] = "SEQUENCE NUMBER: ";
+            char header[] = "PACKET NUMBER: ";
 
             // update packet headers
             itoa(-1, seq_num_string); 
@@ -497,9 +550,12 @@ int main(int argc,char *argv[])
       pthread_join(threads[0],NULL);
       pthread_join(threads[1],NULL);
 
+      exit(0);
+
       free(ack);
       free(packet_contents);
       free(timestamps);
+
     }
     else
     {
