@@ -160,10 +160,10 @@ int main(int argc,char *argv[])
     // reset buf 
     memset(buf, 0, BUFSIZE + HEADERSIZE);  
 
-    printf("total packets: %d\n",total_packets);
     printf("received packets: %d\n",received_packets_count);
     if (total_packets == received_packets_count)
     {
+	printf("total packets: %d\n",total_packets);
       FILE *fp;
       fp = fopen("output.txt","w+"); // output to a file 
 
@@ -285,7 +285,6 @@ int main(int argc,char *argv[])
 	printf("CORRUPTED PACKET #%s\n", r_seq_num);
 	continue;
     }
-    printf("RECEIVED PACKET NUMBER: %s\n",sequence_num);
     printf("RECEIVED SEQUENCE NUMBER: %s\n",r_seq_num);
     // send ack if received packet
     char ack[30000] = "ACK: ";  // ACK

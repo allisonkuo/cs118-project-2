@@ -30,7 +30,7 @@ double corruption_rate;
 
 int mode; //0: without extra features, 1: Slow start
 int threshhold_reached;
-
+int stop_growing;
 
 // function to determine if packet is lost
 int loss_check ()
@@ -424,11 +424,13 @@ void *sslistenthread(void *fp)
 	// send message based off request
 	if(received_buf[0] == 'A' && received_buf[1] == 'C' && received_buf[2] == 'K')
 	{
-	    if(window_size == MAXWINDOW)
+	    if(threshhold_reached == 0 && window_size >= MAXWINDOW)
 	    {
+		printf("REACHED MAXWINDOWS\n");
+		printf("ENTERING STABLE MODE\n");
 		threshhold_reached = 1;
 	    }
-	    if(threshhold_reached == 0)
+	    if(threshhold_reached == 0 && stop_growing == 0)
 	    {
 		pthread_mutex_lock(&lock);
 		ack = (char *) realloc(ack, window_size * 2);
@@ -442,9 +444,10 @@ void *sslistenthread(void *fp)
 
 		timestamps = (time_t *) realloc(timestamps, window_size * 2 * sizeof(time_t));
 		window_size *= 2;
+		printf("DOUBLING WINDOW SIZE\n");
 		pthread_mutex_unlock(&lock);
 	    }
-	    else if(window_size < MAXWINDOW)
+	    else if(window_size < MAXWINDOW && stop_growing == 0)
 	    {
 		pthread_mutex_lock(&lock);
 		ack = (char *) realloc(ack, window_size + 1);
@@ -494,7 +497,7 @@ void *sslistenthread(void *fp)
 
 void *sstalkthread(void *fp)
 {
-
+    printf("STARTING IN SLOWSTART MODE");
     // listen for receiver request/ACKs
     // read through file
     unsigned char file_buf[BUFSIZE];
@@ -567,6 +570,7 @@ void *sstalkthread(void *fp)
 	initial_send_count += 1;
     }
     //main loop that updates window while sending
+    int final_num_loops;
     while(1)
     {
 	int num_loops = window_size;
@@ -587,7 +591,11 @@ void *sstalkthread(void *fp)
 		// resend if TIMEOUT
 		if (difftime(time(NULL), timestamps[i]) >= TIMEOUT)
 		{
-		    threshhold_reached = 1;
+		    if(threshhold_reached == 0)
+		    {
+			printf("SSTHRESH REACHED\nENTERING CONGESTION AVOIDANCE MODE\n");
+			threshhold_reached = 1;
+		    }
 		    int sent_count = sendto(fd, packet_contents[i], strlen((const char*) packet_contents[i]), 0, (struct sockaddr*)&cliaddr, sizeof(cliaddr));
 		    if (sent_count < 0)
 			perror("error sending file");          
@@ -640,9 +648,6 @@ void *sstalkthread(void *fp)
 		    itoa(window_start + i, packet_num_string);
 		    itoa((window_start % 30 + window_size - 1) % 30, seq_num_string); 
 
-		    printf("window start: %d\n", window_start);
-		    printf("i: %d\n", i);
-		    printf("ACK: %d\n", ack[i]);
 		    // reset the buffers        
 		    memset(send_buf,0,sizeof(send_buf));
 		    memset(file_buf,0,sizeof(file_buf));
@@ -763,6 +768,7 @@ void *sstalkthread(void *fp)
 		//read/save next packet
 		if(feof((FILE *)fp))
 		{
+		    stop_growing = 1;
 		    extra_packets += 1;
 		    ack[two_found] = 1;
 		    pthread_mutex_unlock(&lock);
@@ -776,7 +782,7 @@ void *sstalkthread(void *fp)
 		// send next packet in window
 		int sent_count = sendto(fd, packet_contents[two_found], strlen((const char*) packet_contents[two_found]), 0, (struct sockaddr*) &cliaddr, sizeof(cliaddr));
 
-		printf("xSENT SEQUENCE NUM: %s\n", seq_num_string); 
+		printf("SENT SEQUENCE NUM: %s\n", seq_num_string); 
 
 		if (sent_count < 0)
 		    perror("error sending file\n");
@@ -793,12 +799,11 @@ void *sstalkthread(void *fp)
 	{
 	    int all_sent = 1;
 	    pthread_mutex_lock(&lock);
-	    for(int i = 0; i < window_size; i++)
+	    for(int i = 0; i < num_loops; i++)
 	    {
 		if(ack[i] == 0 || ack[i] == 2) 
 		    all_sent = 0;
 	    }
-	    pthread_mutex_unlock(&lock);
 	    //send final message and check for ACK
 	    if(all_sent)
 	    {
@@ -824,10 +829,11 @@ void *sstalkthread(void *fp)
 			char temp_total_packets[30000];
 
 			//TESTING
-			//printf("window_start %d\n", window_start);
-			//printf("window_size %d\n", window_size);
-
-			itoa(num_loops + window_start - extra_packets, temp_total_packets);
+			if(num_loops != window_size)
+			{
+			    break;
+			}
+			itoa(window_size + window_start - extra_packets, temp_total_packets);
 			strcat((char*) send_buf, (const char*) temp_total_packets);
 
 			//printf("buffer:\n%s\n",send_buf);
@@ -841,6 +847,7 @@ void *sstalkthread(void *fp)
 		    }
 		}
 	    }
+	    pthread_mutex_unlock(&lock);
 	}
     }
 }
@@ -1018,8 +1025,13 @@ int main(int argc,char *argv[])
 	    //EC
 	    else if(mode == 1)
 	    {
+		stop_growing = 0;
 		window_size = 1;
-		threshhold_reached = 0;
+		if(threshhold_reached == 0)
+		{
+		    printf("SSTHRESH REACHED\nENTERING CONGESTION AVOIDANCE MODE\n");
+		    threshhold_reached = 0;
+		}
 		ack = (char *) malloc(window_size);
 		memset(ack,0,sizeof(ack));
 
