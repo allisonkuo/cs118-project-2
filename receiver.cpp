@@ -174,7 +174,7 @@ int main(int argc,char *argv[])
         //printf("%s", file_content[k]);
       }
       fclose(fp);
-      exit(0);
+  //    exit(0);
     }
 
     int lost = 0;
@@ -285,14 +285,14 @@ int main(int argc,char *argv[])
 	printf("CORRUPTED PACKET #%s\n", r_seq_num);
 	continue;
     }
-    //printf("RECEIVED PACKET NUMBER: %s\n",sequence_num);
+    printf("RECEIVED PACKET NUMBER: %s\n",sequence_num);
     printf("RECEIVED SEQUENCE NUMBER: %s\n",r_seq_num);
     // send ack if received packet
     char ack[30000] = "ACK: ";  // ACK
     strcat(ack, sequence_num);
     if (sendto(fd, ack, strlen(ack), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
       perror("send to failed"); 
-    printf("SENT ACK %s\n", r_seq_num);
+    printf("SENT ACK %s\n", sequence_num);//r_seq_num); //TODO
 
     // parse out message
     int sequence = atoi(sequence_num);
